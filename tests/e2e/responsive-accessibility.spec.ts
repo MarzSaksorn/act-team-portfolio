@@ -140,3 +140,53 @@ test('blueTouchStaysDecorativeWhileCoralRemainsPrimary', async ({ page }) => {
   expect(contrastRatio(colors.foreground, colors.background)).toBeGreaterThanOrEqual(4.5);
   expect(colors.background).toBe('rgb(191, 13, 13)');
 });
+
+test('requestedFontsLoadAndThaiFallbackRemainsAvailable', async ({ page }) => {
+  await page.goto('/');
+  const english = await page.evaluate(async () => {
+    const hero = document.querySelector('.hero-display');
+    const body = document.querySelector('.hero-body');
+    const heading = document.querySelector('.about-strip h2');
+    const wordmark = document.querySelector('.art-wordmark');
+    if (!hero || !body || !heading || !wordmark) throw new Error('Typography targets are missing');
+
+    const [aqua, alegreya, thai] = await Promise.all([
+      document.fonts.load('400 64px "Aqua Grotesque"', 'Think beyond'),
+      document.fonts.load('400 16px "Alegreya Sans"', 'Avoonger Competition Team'),
+      document.fonts.load('400 16px "IBM Plex Sans Thai"', 'ทีมเทคโนโลยี'),
+    ]);
+    return {
+      heroFamily: getComputedStyle(hero).fontFamily,
+      heroWeight: getComputedStyle(hero).fontWeight,
+      bodyFamily: getComputedStyle(body).fontFamily,
+      headingFamily: getComputedStyle(heading).fontFamily,
+      wordmarkFamily: getComputedStyle(wordmark).fontFamily,
+      loadedFaces: { aqua: aqua.length, alegreya: alegreya.length, thai: thai.length },
+    };
+  });
+
+  expect(english.heroFamily).toContain('Aqua Grotesque');
+  expect(english.heroWeight).toBe('400');
+  expect(english.bodyFamily).toContain('Alegreya Sans');
+  expect(english.headingFamily).toContain('Alegreya Sans');
+  expect(english.wordmarkFamily).toContain('Space Grotesk');
+  expect(english.loadedFaces.aqua).toBeGreaterThan(0);
+  expect(english.loadedFaces.alegreya).toBeGreaterThan(0);
+  expect(english.loadedFaces.thai).toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'ไทย', exact: true }).click();
+  const thai = await page.evaluate(async () => {
+    const hero = document.querySelector('.hero-display');
+    const body = document.querySelector('.hero-body');
+    if (!hero || !body) throw new Error('Thai typography targets are missing');
+    const loaded = await document.fonts.load('400 16px "IBM Plex Sans Thai"', 'ข้อความภาษาไทย');
+    return {
+      heroFamily: getComputedStyle(hero).fontFamily,
+      bodyFamily: getComputedStyle(body).fontFamily,
+      thaiFaces: loaded.length,
+    };
+  });
+  expect(thai.heroFamily).toContain('IBM Plex Sans Thai');
+  expect(thai.bodyFamily).toContain('IBM Plex Sans Thai');
+  expect(thai.thaiFaces).toBeGreaterThan(0);
+});

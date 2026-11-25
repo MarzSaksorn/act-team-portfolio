@@ -4,6 +4,8 @@ ACT’s English/Thai portfolio introduces the team and gives its competitions an
 
 The exact main brand color is `#F35857`. The [coral palette](docs/color-palette.md) documents its 11-shade scale, semantic CSS tokens, and calculated contrast. Small white-text actions use a darker coral rather than the exact brand so their text meets AA contrast.
 
+The [typography notes](docs/typography.md) document Aqua Grotesque for the hero, Alegreya Sans for secondary text, the Thai-capable fallback, and the bundled font notices.
+
 ## Run locally
 
 Use Node.js 22.22.2+ within 22.x, 24.15+ within 24.x, or 26+. These ranges cover the locked build and test tools. Use the pinned pnpm version.

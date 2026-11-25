@@ -47,7 +47,9 @@
   --glass-shadow: rgba(95, 7, 7, .045);
   --glass-inset-shadow: rgba(95, 7, 7, .025);
 
-  --display: 'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
-  --body: 'IBM Plex Sans Thai', sans-serif;
+  --hero-display: 'Aqua Grotesque', 'IBM Plex Sans Thai', sans-serif;
+  --display: 'Alegreya Sans', 'IBM Plex Sans Thai', sans-serif;
+  --body: 'Alegreya Sans', 'IBM Plex Sans Thai', sans-serif;
+  --brand-display: 'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
   --radius: 24px;
 }
