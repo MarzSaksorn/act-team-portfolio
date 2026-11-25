@@ -1,0 +1,11 @@
+:root {
+  --ink: #073c42;
+  --muted: #426169;
+  --teal: #06464b;
+  --accent: #d9edb4;
+  --paper: #f4f9f8;
+  --line: rgba(9, 73, 77, .16);
+  --display: 'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
+  --body: 'IBM Plex Sans Thai', sans-serif;
+  --radius: 24px;
+}
