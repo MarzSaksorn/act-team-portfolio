@@ -259,3 +259,9 @@ test('micro interaction feedback uses transforms with visible keyboard focus and
   await language.hover(); await page.mouse.down();
   try { await expect(language).toHaveCSS('transform', 'none'); } finally { await page.mouse.up(); }
 });
+
+test('homepage backdrop leaves coral for the ACT hero instead of washing the whole page', async ({ page }) => {
+  await page.goto('/');
+  const image = await page.locator('.site-backdrop').evaluate(element => getComputedStyle(element).backgroundImage);
+  expect(image).not.toContain('radial-gradient');
+});

@@ -21,7 +21,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; border-radius: 6px; }
 main:focus { outline: none; }
 :target { scroll-margin-top: 110px; }
-.site-backdrop { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse at 80% 12%, var(--coral-200) 0, transparent 39%), radial-gradient(ellipse at 58% 28%, var(--coral-100) 0, transparent 32%), radial-gradient(ellipse at 7% 62%, #e6eddd 0, transparent 35%), var(--background); pointer-events: none; }
+.site-backdrop { position: fixed; inset: 0; z-index: -1; background: var(--background); pointer-events: none; }
 .app-shell { max-width: 1380px; padding: 24px 64px 0; margin: auto; }
 .site-header { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 17px 26px; border-radius: 20px; }
 .wordmark { display: flex; align-items: center; gap: 13px; flex-shrink: 0; }
