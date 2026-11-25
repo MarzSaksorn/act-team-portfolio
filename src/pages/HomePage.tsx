@@ -5,6 +5,7 @@ import { useSiteContent } from '../content/ContentContext';
 import UpcomingCompetitionCard from '../components/UpcomingCompetitionCard';
 import JoinActLink from '../components/JoinActLink';
 import { usePageMeta } from '../hooks/usePageMeta';
+import AsciiHeroArt from '../components/AsciiHeroArt';
 
 export default function HomePage() {
   const { locale, text } = useLocale();
@@ -12,7 +13,7 @@ export default function HomePage() {
   usePageMeta(`${text.home} | ACT — Avoonger Competition Team`, siteCopy.homeDescription[locale]);
   return <>
     <section className="hero"><div className="hero-copy"><h1 className="hero-team"><span aria-hidden="true" />{siteCopy.homeTitle[locale]}</h1><p className="hero-display">{siteCopy.heroLine1[locale]}<br /><span>{siteCopy.heroLine2[locale]}</span></p><p className="hero-body">{siteCopy.heroBody[locale]}</p><div className="hero-actions"><Link to="/competitions" className="button button-primary">{text.viewCompetitions}<ArrowUpRight size={19} aria-hidden="true" /></Link><Link to="/projects" className="text-link">{text.seeProjects}<ArrowUpRight size={17} aria-hidden="true" /></Link></div><a className="hero-scroll" href="#about"><span><ArrowDown size={14} aria-hidden="true" /></span>{text.scroll}</a></div>
-      <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="art-glass glass-panel"><span className="art-topline">ACT / Collective</span><div className="art-wordmark">ACT<span>.</span></div><div className="art-bottomline"><span>AI × SUSTAINABILITY</span><ArrowUpRight size={32} strokeWidth={1} /></div></div><div className="art-caption">Avoonger Competition Team</div><div className="art-stamp glass-panel"><Sprout size={20} strokeWidth={1.4} /><span>Think • Build • ACT</span></div></div>
+      <AsciiHeroArt />
     </section>
     <section className="about-strip" id="about"><div><span className="eyebrow">ACT</span><h2>{siteCopy.forming[locale]}</h2></div><p>{siteCopy.teamBody[locale]}</p><div className="founder-count"><strong>{siteCopy.teamCountValue[locale]}</strong><span>{siteCopy.teamCount[locale]}</span><span className="recruiting"><span aria-hidden="true" />{siteCopy.teamStatus[locale]}</span></div></section>
     <section className="focus-section"><div className="section-title"><span className="eyebrow">{siteCopy.focusLabel[locale]}</span><h2>{siteCopy.focusHeading[locale]}</h2></div><div className="focus-list"><div><Cpu size={25} strokeWidth={1.4} aria-hidden="true" /><span className="focus-number">01</span><h3>{siteCopy.ai[locale]}</h3><p>{siteCopy.aiText[locale]}</p></div><div><Sprout size={25} strokeWidth={1.4} aria-hidden="true" /><span className="focus-number">02</span><h3>{siteCopy.sustainable[locale]}</h3><p>{siteCopy.sustainableText[locale]}</p></div><div><ChartNoAxesCombined size={25} strokeWidth={1.4} aria-hidden="true" /><span className="focus-number">03</span><h3>{siteCopy.business[locale]}</h3><p>{siteCopy.businessText[locale]}</p></div></div></section>

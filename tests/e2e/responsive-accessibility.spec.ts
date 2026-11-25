@@ -89,7 +89,7 @@ test('coralPrimaryActionsMeetTextContrastInDefaultHoverAndActiveStates', async (
   };
   await assertReadableCoral();
   await button.hover();
-  await expect.poll(() => button.evaluate(element => getComputedStyle(element).transform)).not.toBe('none');
+  await expect(button).toHaveCSS('transform', 'none');
   await assertReadableCoral();
   await page.mouse.down();
   try { await assertReadableCoral(); } finally { await page.mouse.up(); }
@@ -131,9 +131,9 @@ test('coralSurfacesKeepTextLinksAndKeyboardFocusReadable', async ({ page }) => {
 
 test('blueTouchStaysDecorativeWhileCoralRemainsPrimary', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.hero-art')).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.orbit-one')).toHaveCSS('border-color', 'rgb(102, 155, 188)');
-  await expect(page.locator('.art-glass')).toHaveCSS('background-color', 'rgba(102, 155, 188, 0.14)');
+  await expect(page.locator('.ascii-frame')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.ascii-panel')).toHaveCSS('background-color', 'rgba(102, 155, 188, 0.14)');
+  await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
   await expect(page.locator('.act-mark i')).toHaveCSS('background-color', 'rgb(243, 88, 87)');
   const colors = await page.locator('.button-primary').first().evaluate(element => {
     const style = getComputedStyle(element);
@@ -149,7 +149,7 @@ test('requestedFontsLoadAndThaiFallbackRemainsAvailable', async ({ page }) => {
     const hero = document.querySelector('.hero-display');
     const body = document.querySelector('.hero-body');
     const heading = document.querySelector('.about-strip h2');
-    const wordmark = document.querySelector('.art-wordmark');
+    const wordmark = document.querySelector('.act-mark');
     if (!hero || !body || !heading || !wordmark) throw new Error('Typography targets are missing');
 
     const [aqua, alegreya, thai] = await Promise.all([
@@ -191,4 +191,71 @@ test('requestedFontsLoadAndThaiFallbackRemainsAvailable', async ({ page }) => {
   expect(thai.heroFamily).toContain('IBM Plex Sans Thai');
   expect(thai.bodyFamily).toContain('IBM Plex Sans Thai');
   expect(thai.thaiFaces).toBeGreaterThan(0);
+});
+
+for (const width of [320, 360, 768, 1440]) {
+  test(`ascii hero stays bounded and keyboard pausable in both locales ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 }); await page.goto('/');
+    const canvas = page.locator('.ascii-canvas');
+    await expect(canvas).toBeVisible();
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error('ASCII bounds missing');
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    const pixels = () => canvas.evaluate(element => {
+      if (!(element instanceof HTMLCanvasElement)) throw new Error('Canvas missing');
+      return element.toDataURL();
+    });
+    const firstFrame = await pixels();
+    await expect.poll(pixels).not.toBe(firstFrame);
+    const pause = page.getByRole('button', { name: 'Pause animation' });
+    await pause.focus(); await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Resume animation' })).toBeFocused();
+    const pausedFrame = await pixels(); await page.waitForTimeout(250);
+    expect(await pixels()).toBe(pausedFrame);
+    expect(await canvas.boundingBox()).toEqual(bounds);
+    await page.getByRole('button', { name: 'ไทย', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'เล่นภาพเคลื่อนไหวต่อ' })).toBeVisible();
+    await page.getByRole('button', { name: 'เล่นภาพเคลื่อนไหวต่อ' }).click();
+    await expect(page.getByRole('button', { name: 'หยุดภาพเคลื่อนไหว' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test('ascii hero is static on reduced motion including a live preference change', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/');
+  const art = page.locator('.hero-art'); const canvas = page.locator('.ascii-canvas');
+  await expect(art).toHaveAttribute('data-motion', 'reduced');
+  const pixels = () => canvas.evaluate(element => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('Canvas missing');
+    return element.toDataURL();
+  });
+  const staticFrame = await pixels(); await page.waitForTimeout(250);
+  expect(await pixels()).toBe(staticFrame);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
+  await expect.poll(pixels).not.toBe(staticFrame);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(art).toHaveAttribute('data-motion', 'reduced');
+  const stopped = await pixels(); await page.waitForTimeout(250); expect(await pixels()).toBe(stopped);
+  await expect(page.locator('.hero-display')).toHaveText('Think boldly.Build responsibly.');
+});
+
+test('micro interaction feedback uses transforms with visible keyboard focus and reduced-motion alternatives', async ({ page }) => {
+  await page.goto('/');
+  const language = page.getByRole('button', { name: 'ไทย', exact: true });
+  await language.hover(); await page.mouse.down();
+  try { await expect(language).not.toHaveCSS('transform', 'none'); } finally { await page.mouse.up(); }
+  const link = page.locator('.hero-actions .text-link');
+  await link.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+  await expect(link).toBeFocused(); await expect(link).toHaveCSS('outline-width', '3px');
+  await expect(link.locator('svg')).not.toHaveCSS('transform', 'none');
+  const nav = page.locator('.main-nav a[href="/projects"]');
+  await nav.focus();
+  await expect.poll(() => nav.evaluate(element => getComputedStyle(element, '::after').transform)).not.toBe('none');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(link.locator('svg')).toHaveCSS('transform', 'none');
+  await language.hover(); await page.mouse.down();
+  try { await expect(language).toHaveCSS('transform', 'none'); } finally { await page.mouse.up(); }
 });
