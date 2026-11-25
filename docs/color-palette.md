@@ -72,3 +72,11 @@ The solid reduced-transparency and unsupported-blur fallback use the same coral 
 On November 25, 2026, the completed theme passed 32 unit tests, the strict TypeScript/production build, 3 static-HTML checks, and all 22 browser checks. Browser coverage includes English/Thai pages at 360, 768, and 1440 pixels, axe scans across all routes, keyboard navigation, reduced preferences, exact rendered brand accents, and primary-action default/hover/pressed contrast.
 
 The contrast regression test was also mutation-checked: temporarily using the exact brand as the white-text primary background failed at 3.31:1, and restoring coral 600 passed. One unit run emitted jsdom’s non-failing `Window.scrollTo()` implementation warning; all 32 tests still passed. The theme does not change scrolling behavior.
+
+## Supporting blue touch
+
+Mark added `#669BBC` as a supporting accent, not a replacement for coral. `--blue` keeps the exact hex for the hero’s decorative orbit outlines at 45% opacity. `--blue-glass` uses the same RGB channels at 14% opacity for the hero glass artwork. Both live inside the existing `aria-hidden` decorative hero art; the blue doesn't convey state or replace text, buttons, links, or focus indicators. The global coral backdrop, brand, action colors, and sustainability details remain unchanged. Reduced-transparency still replaces the tinted glass with opaque coral 50 paper.
+
+White on the exact blue scores 3.01:1; deep teal `#073C42` on it scores 4.03:1. Neither meets the 4.5:1 requirement for normal text, so the site doesn't use either as a text-on-blue pair. Blue against coral 50 scores 2.75:1 before opacity, so the orbit outlines remain decorative and must not become meaningful control boundaries or focus rings. The existing coral focus and control colors stay intact.
+
+The blue-touch update passed its new rendered regression check, all 23 browser checks, 32 unit tests, the strict TypeScript/production build, and 3 static-HTML checks on November 25, 2026. The regression check first failed on the old coral orbit, then passed after applying the decorative blue.

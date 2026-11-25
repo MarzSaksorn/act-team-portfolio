@@ -23,3 +23,9 @@ Handoff: commit with the configured user identity and push the verified update t
 ## Release boundary
 
 Production remains unpublished. Auto Publish stays off. Push only the sanitized current source to `MarzSaksorn/act-team-portfolio`; never rewrite public history or transfer private development commits.
+
+## Requested blue touch
+
+Mark asked to add a touch of `#669BBC`. Keep coral as the main brand and primary action color. Use the exact blue for the decorative hero orbit outlines at reduced opacity and a 14% translucent blue tint for the existing hero glass artwork. Don't recolor body text, small labels, controls, global backgrounds, or focus rings: blue remains a supporting decorative detail. The existing `aria-hidden` hero artwork, layout, sustainability details, and solid fallback stay unchanged.
+
+Add `--blue` and a blue-glass fill token in `tokens.css`, map the existing art fill to it, and update only `.orbit` in `global.css`. Pin the rendered decorative blue use and unchanged coral action/text contrast with a test-first browser check. Update the palette documentation, run the existing checks, and push the verified source without publication.

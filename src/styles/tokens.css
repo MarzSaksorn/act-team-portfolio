@@ -39,8 +39,11 @@
   --sustainability: #355b43;
   --sustainability-surface: #d9edb4;
   --sustainability-foreground: var(--ink);
+  /* Supporting blue is decorative only; coral remains the primary. */
+  --blue: #669BBC;
+  --blue-glass: rgba(102, 155, 188, .14);
   --glass-fill: rgba(255, 250, 250, .68);
-  --art-fill: rgba(243, 88, 87, .12);
+  --art-fill: var(--blue-glass);
   --glass-shadow: rgba(95, 7, 7, .045);
   --glass-inset-shadow: rgba(95, 7, 7, .025);
 

@@ -126,3 +126,17 @@ test('coralSurfacesKeepTextLinksAndKeyboardFocusReadable', async ({ page }) => {
   expect(focus.offset).toBeGreaterThanOrEqual(3);
   expect(contrastRatio(focus.color, colors.paper)).toBeGreaterThanOrEqual(3);
 });
+
+test('blueTouchStaysDecorativeWhileCoralRemainsPrimary', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.hero-art')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.orbit-one')).toHaveCSS('border-color', 'rgb(102, 155, 188)');
+  await expect(page.locator('.art-glass')).toHaveCSS('background-color', 'rgba(102, 155, 188, 0.14)');
+  await expect(page.locator('.act-mark i')).toHaveCSS('background-color', 'rgb(243, 88, 87)');
+  const colors = await page.locator('.button-primary').first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return { foreground: style.color, background: style.backgroundColor };
+  });
+  expect(contrastRatio(colors.foreground, colors.background)).toBeGreaterThanOrEqual(4.5);
+  expect(colors.background).toBe('rgb(191, 13, 13)');
+});

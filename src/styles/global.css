@@ -55,7 +55,7 @@ main:focus { outline: none; }
 .art-wordmark { font-family: var(--display); font-size: clamp(115px, 13vw, 190px); font-weight: 500; line-height: 1.23; letter-spacing: -13px; color: var(--primary); white-space: nowrap; }
 .art-wordmark > span { color: var(--brand); }
 .art-bottomline { display: flex; justify-content: space-between; align-items: center; font-size: 9px; font-weight: 500; letter-spacing: .7px; }
-.orbit { position: absolute; border: 1px solid var(--line); border-radius: 50%; z-index: -1; }
+.orbit { position: absolute; border: 1px solid var(--blue); opacity: .45; border-radius: 50%; z-index: -1; }
 .orbit-one { height: 365px; width: 365px; top: 12px; right: -9px; }
 .orbit-two { height: 318px; width: 440px; top: 20px; left: -22px; transform: rotate(37deg); }
 .art-caption { position: absolute; left: 24px; bottom: 0; font-size: 10px; color: var(--muted); }
