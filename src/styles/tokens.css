@@ -1,10 +1,49 @@
 :root {
+  /* Exact ACT brand stays separate from the HSL-derived shade scale. */
+  --brand: #F35857;
+  --coral-50: #FDF2F2;
+  --coral-100: #FAE5E5;
+  --coral-200: #F6C5C5;
+  --coral-300: #F18E8E;
+  --coral-400: #EF4E4E;
+  --coral-500: #E51010;
+  --coral-600: #BF0D0D;
+  --coral-700: #9D0B0B;
+  --coral-800: #810909;
+  --coral-900: #5F0707;
+  --coral-950: #300303;
+
   --ink: #073c42;
-  --muted: #426169;
-  --teal: #06464b;
-  --accent: #d9edb4;
-  --paper: #f4f9f8;
-  --line: rgba(9, 73, 77, .16);
+  --muted: #3c5960;
+  --paper: var(--coral-50);
+  --background: var(--coral-50);
+  --background-foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --brand-foreground: var(--coral-950);
+  --primary: var(--coral-600);
+  --primary-foreground: #ffffff;
+  --primary-hover: var(--coral-700);
+  --primary-active: var(--coral-800);
+  --secondary: var(--coral-100);
+  --secondary-foreground: var(--ink);
+  --accent: var(--coral-100);
+  --accent-foreground: var(--ink);
+  --muted-surface: var(--coral-50);
+  --muted-foreground: var(--muted);
+  --link: var(--coral-700);
+  --focus: var(--coral-700);
+  --control-border: var(--coral-600);
+  --line: rgba(157, 11, 11, .16);
+
+  --sustainability: #355b43;
+  --sustainability-surface: #d9edb4;
+  --sustainability-foreground: var(--ink);
+  --glass-fill: rgba(255, 250, 250, .68);
+  --art-fill: rgba(243, 88, 87, .12);
+  --glass-shadow: rgba(95, 7, 7, .045);
+  --glass-inset-shadow: rgba(95, 7, 7, .025);
+
   --display: 'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
   --body: 'IBM Plex Sans Thai', sans-serif;
   --radius: 24px;

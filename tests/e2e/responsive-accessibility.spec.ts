@@ -1,6 +1,24 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+function rgbChannels(color: string): number[] {
+  const channels = color.match(/[\d.]+/g)?.map(Number);
+  if (!channels || channels.length !== 3) throw new Error(`Expected opaque RGB color: ${color}`);
+  return channels;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (color: string) => rgbChannels(color).reduce((sum, channel, index) => {
+    const normalized = channel / 255;
+    const linear = normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    const weight = [0.2126, 0.7152, 0.0722][index];
+    if (weight === undefined) throw new Error('Unexpected color channel');
+    return sum + linear * weight;
+  }, 0);
+  const values = [luminance(foreground), luminance(background)];
+  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+}
+
 for (const width of [360, 768, 1440]) {
   for (const route of ['/', '/competitions', '/projects']) {
     test(`allPagesFitMobileViewport ${width} ${route}`, async ({ page }) => {
@@ -27,7 +45,7 @@ test('reducedTransparencyUsesSolidFallback', async ({ page }) => {
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] });
   await page.goto('/');
   await expect(page.locator('.site-header')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('.site-header')).toHaveCSS('background-color', 'rgb(244, 249, 248)');
+  await expect(page.locator('.site-header')).toHaveCSS('background-color', 'rgb(253, 242, 242)');
 });
 for (const route of ['/', '/competitions', '/projects']) {
   for (const locale of ['en', 'th']) {
@@ -46,4 +64,65 @@ test('keyboardFocusIsVisibleAndNavigationWorks', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ideas into action');
   await page.getByRole('link', { name: 'Join ACT', exact: true }).click();
   await expect(page.locator('#join')).toBeInViewport();
+});
+
+test('coralBrandAppearsInTheWordmarkAndBrowserTheme', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.act-mark i')).toHaveCSS('background-color', 'rgb(243, 88, 87)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#F35857');
+});
+
+test('coralPrimaryActionsMeetTextContrastInDefaultHoverAndActiveStates', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const button = page.locator('.button-primary').first();
+  const assertReadableCoral = async () => {
+    const colors = await button.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { foreground: style.color, background: style.backgroundColor };
+    });
+    const channels = rgbChannels(colors.background);
+    expect(channels[0]).toBeGreaterThan(channels[1] ?? 255);
+    expect(contrastRatio(colors.foreground, colors.background)).toBeGreaterThanOrEqual(4.5);
+  };
+  await assertReadableCoral();
+  await button.hover();
+  await expect.poll(() => button.evaluate(element => getComputedStyle(element).transform)).not.toBe('none');
+  await assertReadableCoral();
+  await page.mouse.down();
+  try { await assertReadableCoral(); } finally { await page.mouse.up(); }
+});
+
+test('coralSurfacesKeepTextLinksAndKeyboardFocusReadable', async ({ page }) => {
+  await page.goto('/');
+  const colors = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const token = (name: string) => {
+      const sample = document.createElement('span');
+      sample.style.color = `var(${name})`;
+      document.body.append(sample);
+      const color = getComputedStyle(sample).color;
+      sample.remove();
+      return color;
+    };
+    return {
+      ink: token('--ink'), muted: token('--muted'), link: token('--link'),
+      paper: token('--paper'), tintedSurface: token('--coral-200'),
+      scalePresent: root.getPropertyValue('--coral-50').trim().length > 0,
+    };
+  });
+  expect(colors.scalePresent).toBe(true);
+  for (const foreground of [colors.ink, colors.muted, colors.link]) {
+    for (const background of [colors.paper, colors.tintedSurface]) {
+      expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+  await page.keyboard.press('Tab');
+  const focus = await page.getByRole('link', { name: 'Skip to content' }).evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.outlineColor, width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset) };
+  });
+  expect(focus.width).toBeGreaterThanOrEqual(3);
+  expect(focus.offset).toBeGreaterThanOrEqual(3);
+  expect(contrastRatio(focus.color, colors.paper)).toBeGreaterThanOrEqual(3);
 });

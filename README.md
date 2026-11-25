@@ -1,6 +1,8 @@
 # Avoonger Competition Team (ACT)
 
-ACT’s English/Thai portfolio introduces the team and gives its competitions and projects separate homes. It uses selective teal/mint glass surfaces, local fonts, keyboard navigation, reduced-motion and reduced-transparency fallbacks. There’s no backend, application form, or member database.
+ACT’s English/Thai portfolio introduces the team and gives its competitions and projects separate homes. It uses selective coral glass surfaces, deep-teal text, local fonts, keyboard navigation, reduced-motion and reduced-transparency fallbacks. There’s no backend, application form, or member database.
+
+The exact main brand color is `#F35857`. The [coral palette](docs/color-palette.md) documents its 11-shade scale, semantic CSS tokens, and calculated contrast. Small white-text actions use a darker coral rather than the exact brand so their text meets AA contrast.
 
 ## Run locally
 
