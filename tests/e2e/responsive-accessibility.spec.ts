@@ -19,7 +19,7 @@ function contrastRatio(foreground: string, background: string): number {
   return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
 }
 
-for (const width of [320, 360, 768, 1440]) {
+for (const width of [320, 360, 768, 1024, 1440]) {
   for (const route of ['/', '/competitions', '/projects']) {
     test(`allPagesFitMobileViewport ${width} ${route}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 }); await page.goto(route);
@@ -131,9 +131,28 @@ test('coralSurfacesKeepTextLinksAndKeyboardFocusReadable', async ({ page }) => {
 
 test('blueTouchStaysDecorativeWhileCoralRemainsPrimary', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.ascii-frame')).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.ascii-panel')).toHaveCSS('background-color', 'rgba(102, 155, 188, 0.14)');
-  await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
+  await expect(page.locator('.ascii-canvas')).toBeVisible();
+  await expect(page.locator('.ascii-surface')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.ascii-panel, .ascii-topline, .ascii-bottomline, .ascii-caption')).toHaveCount(0);
+  const pause = page.getByRole('button', { name: 'Pause animation' });
+  await expect(pause).toBeVisible();
+  await expect(pause).toHaveAttribute('aria-label', 'Pause animation');
+  await expect(pause).toHaveText('');
+  const hasBlueGlyph = await page.locator('.ascii-canvas').evaluate(element => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('ASCII canvas missing');
+    const context = element.getContext('2d');
+    if (!context) throw new Error('Canvas context missing');
+    const { data } = context.getImageData(0, 0, element.width, element.height);
+    for (let index = 0; index < data.length; index += 4) {
+      const red = data[index] ?? 0;
+      const green = data[index + 1] ?? 0;
+      const blue = data[index + 2] ?? 0;
+      const alpha = data[index + 3] ?? 0;
+      if (alpha > 0 && red < 150 && green > 110 && blue > 140) return true;
+    }
+    return false;
+  });
+  expect(hasBlueGlyph).toBe(true);
   await expect(page.locator('.act-mark i')).toHaveCSS('background-color', 'rgb(243, 88, 87)');
   const colors = await page.locator('.button-primary').first().evaluate(element => {
     const style = getComputedStyle(element);
@@ -193,7 +212,7 @@ test('requestedFontsLoadAndThaiFallbackRemainsAvailable', async ({ page }) => {
   expect(thai.thaiFaces).toBeGreaterThan(0);
 });
 
-for (const width of [320, 360, 768, 1440]) {
+for (const width of [320, 360, 768, 1024, 1440]) {
   test(`ascii hero stays bounded and keyboard pausable in both locales ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 }); await page.goto('/');
     const canvas = page.locator('.ascii-canvas');
@@ -258,6 +277,59 @@ test('micro interaction feedback uses transforms with visible keyboard focus and
   await expect(link.locator('svg')).toHaveCSS('transform', 'none');
   await language.hover(); await page.mouse.down();
   try { await expect(language).toHaveCSS('transform', 'none'); } finally { await page.mouse.up(); }
+});
+
+test('asciiBackgroundOverlapsHeroHeadlineWithoutCoveringItsCopy', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await expect(page.locator('.ascii-canvas')).toBeVisible();
+  const composition = await page.evaluate(() => {
+    const canvas = document.querySelector('.ascii-canvas');
+    const headline = document.querySelector('.hero-display');
+    const copy = document.querySelector('.hero-copy');
+    const art = document.querySelector('.hero-art');
+    if (!(canvas instanceof HTMLElement) || !(headline instanceof HTMLElement)
+      || !(copy instanceof HTMLElement) || !(art instanceof HTMLElement)) {
+      throw new Error('Hero composition targets are missing');
+    }
+    const headlineLine = headline.querySelector('span');
+    if (!(headlineLine instanceof HTMLElement)) throw new Error('Second headline line missing');
+    const artBounds = canvas.getBoundingClientRect();
+    const headlineBounds = headlineLine.getBoundingClientRect();
+    return {
+      horizontalOverlap: Math.min(artBounds.right, headlineBounds.right) - Math.max(artBounds.left, headlineBounds.left),
+      verticalOverlap: Math.min(artBounds.bottom, headlineBounds.bottom) - Math.max(artBounds.top, headlineBounds.top),
+      headlineWidth: headlineBounds.width,
+      copyLayer: Number.parseInt(getComputedStyle(copy).zIndex, 10),
+      artLayer: Number.parseInt(getComputedStyle(art).zIndex, 10),
+      headlineText: headline.textContent ?? '',
+    };
+  });
+  expect(composition.horizontalOverlap).toBeGreaterThan(0);
+  expect(composition.horizontalOverlap / composition.headlineWidth).toBeLessThan(0.55);
+  expect(composition.verticalOverlap).toBeGreaterThan(0);
+  expect(composition.copyLayer).toBeGreaterThan(composition.artLayer);
+  expect(composition.headlineText).toContain('Think boldly.');
+  expect(composition.headlineText).toContain('Build responsibly.');
+  const pause = page.getByRole('button', { name: 'Pause animation' });
+  await expect(pause).toHaveAttribute('aria-label', 'Pause animation');
+  await expect(pause).toHaveText('');
+});
+
+test('mobile ASCII glyphs soften without fading the animation control', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await expect(page.locator('.ascii-canvas')).toBeVisible();
+  const opacity = () => page.locator('.ascii-surface').evaluate(element => Number(getComputedStyle(element).opacity));
+  const desktopOpacity = await opacity();
+  await page.setViewportSize({ width: 320, height: 1000 });
+  const mobileOpacity = await opacity();
+  expect(mobileOpacity).toBeGreaterThan(0);
+  expect(mobileOpacity).toBeLessThan(desktopOpacity);
+  const pause = page.getByRole('button', { name: 'Pause animation' });
+  await expect(pause).toHaveCSS('opacity', '1');
+  await pause.click();
+  await expect(page.getByRole('button', { name: 'Resume animation' })).toBeVisible();
 });
 
 test('homepage backdrop leaves coral for the ACT hero instead of washing the whole page', async ({ page }) => {

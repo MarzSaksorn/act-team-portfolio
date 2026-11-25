@@ -128,20 +128,17 @@ export default function AsciiHeroArt(): ReactElement {
   };
 
   return <div className="hero-art ascii-art" data-motion={!ready ? 'fallback' : reduced ? 'reduced' : paused ? 'paused' : 'running'}>
-    <div className="ascii-panel glass-panel">
-      <div className="ascii-frame" aria-hidden="true">
-        <span className="ascii-topline">ACT / Collective</span>
-        <div className="ascii-surface">
-          <pre className="ascii-fallback" hidden={ready}>{STATIC_FRAME}</pre>
-          <canvas className="ascii-canvas" ref={canvasRef} width={COLS * CELL_WIDTH} height={ROWS * CELL_HEIGHT} hidden={!ready} />
-        </div>
-        <span className="ascii-bottomline">AI × SUSTAINABILITY</span>
-      </div>
-      {ready && !reduced && <button className="ascii-control" type="button" onClick={togglePause}>
-        {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
-        {paused ? text.resumeAnimation : text.pauseAnimation}
-      </button>}
+    <div className="ascii-surface" aria-hidden="true">
+      <pre className="ascii-fallback" hidden={ready}>{STATIC_FRAME}</pre>
+      <canvas className="ascii-canvas" ref={canvasRef} width={COLS * CELL_WIDTH} height={ROWS * CELL_HEIGHT} hidden={!ready} />
     </div>
-    <span className="ascii-caption" aria-hidden="true">Avoonger Competition Team</span>
+    {ready && !reduced && <button
+      className="ascii-control"
+      type="button"
+      aria-label={paused ? text.resumeAnimation : text.pauseAnimation}
+      onClick={togglePause}
+    >
+      {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
+    </button>}
   </div>;
 }
