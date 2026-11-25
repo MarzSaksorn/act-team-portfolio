@@ -93,58 +93,61 @@ it('draws changing deterministic character frames while capping redraws at twelv
   expect(frames[0]).toEqual(initial);
 });
 
-it('keyboard pause freezes output and resume restarts it without hiding the control', async () => {
-  const user = userEvent.setup(); mount();
-  const pause = screen.getByRole('button', { name: 'Pause animation' });
-  expect(pause.closest('[aria-hidden="true"]')).toBeNull();
-  pause.focus(); await user.keyboard('{Enter}');
-  expect(screen.getByRole('button', { name: 'Resume animation' })).toHaveFocus();
-  const count = frames.length; advance(1000); advance(2000);
-  expect(frames).toHaveLength(count);
-  await user.keyboard(' '); advance(3000); advance(4000);
+it('keeps drawing beyond five seconds without rendering a pause control', () => {
+  mount();
+  expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
+  advance(1000); advance(5000);
+  const count = frames.length;
+  advance(6000); advance(7000);
   expect(frames.length).toBeGreaterThan(count);
+  expect(frames.at(-1)).not.toEqual(frames[count - 1]);
 });
 
-it('reduced motion starts static and prevents a manual resume from starting decorative motion', async () => {
+it('reduced motion starts static without rendering a motion control', () => {
   reduced = true; mount(); const count = frames.length;
   advance(1000); advance(2000); expect(frames).toHaveLength(count);
-  expect(screen.queryByRole('button', { name: 'Pause animation' })).not.toBeInTheDocument();
+  expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
   expect(art().closest('.hero-art')).toHaveAttribute('data-motion', 'reduced');
 });
 
-it('live motion preference changes stop the loop and respect a prior explicit pause', async () => {
-  const user = userEvent.setup(); mount();
+it('live motion preference changes stop and restart the loop without a motion control', () => {
+  mount();
   changeMotion(true); const staticCount = frames.length;
   advance(1000); expect(frames).toHaveLength(staticCount);
   changeMotion(false); advance(2000); advance(3000);
   expect(frames.length).toBeGreaterThan(staticCount);
-  await user.click(screen.getByRole('button', { name: 'Pause animation' }));
-  changeMotion(true); changeMotion(false); const pausedCount = frames.length;
-  advance(4000); expect(frames).toHaveLength(pausedCount);
-  expect(screen.getByRole('button', { name: 'Resume animation' })).toBeInTheDocument();
+  expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
+  changeMotion(true); const stoppedCount = frames.length;
+  advance(4000); expect(frames).toHaveLength(stoppedCount);
+  changeMotion(false); advance(5000);
+  expect(frames.length).toBeGreaterThan(stoppedCount);
 });
 
-it('hidden documents stop drawing and visibility does not undo an explicit pause', async () => {
-  const user = userEvent.setup(); mount();
+it('hidden documents stop drawing and visibility resumes the loop', () => {
+  mount();
   let hidden = true;
   vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
   act(() => document.dispatchEvent(new Event('visibilitychange')));
   const count = frames.length; advance(1000); expect(frames).toHaveLength(count);
   hidden = false; act(() => document.dispatchEvent(new Event('visibilitychange')));
   advance(2000); expect(frames.length).toBeGreaterThan(count);
-  await user.click(screen.getByRole('button', { name: 'Pause animation' }));
   hidden = true; act(() => document.dispatchEvent(new Event('visibilitychange')));
+  const hiddenCount = frames.length; advance(3000);
+  expect(frames).toHaveLength(hiddenCount);
   hidden = false; act(() => document.dispatchEvent(new Event('visibilitychange')));
-  const pausedCount = frames.length; advance(3000); expect(frames).toHaveLength(pausedCount);
+  advance(4000); expect(frames.length).toBeGreaterThan(hiddenCount);
 });
 
-it('locale switches update pause and resume names without resetting the chosen pause', async () => {
+it('locale switches keep the artwork running without adding a motion control', async () => {
   const user = userEvent.setup(); mount();
   await user.click(screen.getByRole('button', { name: 'ไทย' }));
-  await user.click(screen.getByRole('button', { name: 'หยุดภาพเคลื่อนไหว' }));
-  expect(screen.getByRole('button', { name: 'เล่นภาพเคลื่อนไหวต่อ' })).toBeInTheDocument();
+  expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
+  const thaiCount = frames.length; advance(1000);
+  expect(frames.length).toBeGreaterThan(thaiCount);
   await user.click(screen.getByRole('button', { name: 'EN' }));
-  expect(screen.getByRole('button', { name: 'Resume animation' })).toBeInTheDocument();
+  expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
+  const englishCount = frames.length; advance(2000);
+  expect(frames.length).toBeGreaterThan(englishCount);
 });
 
 it('unmount cancels queued frames and detaches preference and visibility work', () => {

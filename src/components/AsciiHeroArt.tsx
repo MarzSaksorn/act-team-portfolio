@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { Pause, Play } from 'lucide-react';
-import { useLocale } from '../i18n/LocaleProvider';
 
 const COLS = 72;
 const ROWS = 32;
@@ -55,12 +53,8 @@ function drawFrame(context: CanvasRenderingContext2D, time: number) {
 }
 
 export default function AsciiHeroArt(): ReactElement {
-  const { text } = useLocale();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pausedRef = useRef(false);
-  const syncRef = useRef<() => void>(() => {});
   const [ready, setReady] = useState(false);
-  const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
@@ -84,7 +78,7 @@ export default function AsciiHeroArt(): ReactElement {
     };
     const tick = (now: number) => {
       request = null;
-      if (disposed || motionReduced || pausedRef.current || document.hidden) return;
+      if (disposed || motionReduced || document.hidden) return;
       if (previousPaint === null || now - previousPaint >= FRAME_INTERVAL) {
         elapsed += previousPaint === null ? FRAME_INTERVAL : Math.min(now - previousPaint, 200);
         previousPaint = now;
@@ -94,7 +88,7 @@ export default function AsciiHeroArt(): ReactElement {
     };
     const sync = () => {
       stop();
-      if (!disposed && !motionReduced && !pausedRef.current && !document.hidden) {
+      if (!disposed && !motionReduced && !document.hidden) {
         request = requestAnimationFrame(tick);
       }
     };
@@ -108,37 +102,21 @@ export default function AsciiHeroArt(): ReactElement {
     drawFrame(painter, 0);
     setReady(true);
     setReduced(motionReduced);
-    syncRef.current = sync;
     media?.addEventListener('change', motionChanged);
     document.addEventListener('visibilitychange', sync);
     sync();
     return () => {
       disposed = true;
       stop();
-      syncRef.current = () => {};
       media?.removeEventListener('change', motionChanged);
       document.removeEventListener('visibilitychange', sync);
     };
   }, []);
 
-  const togglePause = () => {
-    pausedRef.current = !pausedRef.current;
-    setPaused(pausedRef.current);
-    syncRef.current();
-  };
-
-  return <div className="hero-art ascii-art" data-motion={!ready ? 'fallback' : reduced ? 'reduced' : paused ? 'paused' : 'running'}>
+  return <div className="hero-art ascii-art" data-motion={!ready ? 'fallback' : reduced ? 'reduced' : 'running'}>
     <div className="ascii-surface" aria-hidden="true">
       <pre className="ascii-fallback" hidden={ready}>{STATIC_FRAME}</pre>
       <canvas className="ascii-canvas" ref={canvasRef} width={COLS * CELL_WIDTH} height={ROWS * CELL_HEIGHT} hidden={!ready} />
     </div>
-    {ready && !reduced && <button
-      className="ascii-control"
-      type="button"
-      aria-label={paused ? text.resumeAnimation : text.pauseAnimation}
-      onClick={togglePause}
-    >
-      {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
-    </button>}
   </div>;
 }

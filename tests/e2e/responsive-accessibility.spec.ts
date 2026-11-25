@@ -134,10 +134,7 @@ test('blueTouchStaysDecorativeWhileCoralRemainsPrimary', async ({ page }) => {
   await expect(page.locator('.ascii-canvas')).toBeVisible();
   await expect(page.locator('.ascii-surface')).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.ascii-panel, .ascii-topline, .ascii-bottomline, .ascii-caption')).toHaveCount(0);
-  const pause = page.getByRole('button', { name: 'Pause animation' });
-  await expect(pause).toBeVisible();
-  await expect(pause).toHaveAttribute('aria-label', 'Pause animation');
-  await expect(pause).toHaveText('');
+  await expect(page.locator('.ascii-art button')).toHaveCount(0);
   const hasBlueGlyph = await page.locator('.ascii-canvas').evaluate(element => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('ASCII canvas missing');
     const context = element.getContext('2d');
@@ -213,7 +210,8 @@ test('requestedFontsLoadAndThaiFallbackRemainsAvailable', async ({ page }) => {
 });
 
 for (const width of [320, 360, 768, 1024, 1440]) {
-  test(`ascii hero stays bounded and keyboard pausable in both locales ${width}`, async ({ page }) => {
+  test(`ascii hero continues looping without a pause control in both locales ${width}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.setViewportSize({ width, height: 1000 }); await page.goto('/');
     const canvas = page.locator('.ascii-canvas');
     await expect(canvas).toBeVisible();
@@ -228,16 +226,17 @@ for (const width of [320, 360, 768, 1024, 1440]) {
     });
     const firstFrame = await pixels();
     await expect.poll(pixels).not.toBe(firstFrame);
-    const pause = page.getByRole('button', { name: 'Pause animation' });
-    await pause.focus(); await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'Resume animation' })).toBeFocused();
-    const pausedFrame = await pixels(); await page.waitForTimeout(250);
-    expect(await pixels()).toBe(pausedFrame);
+    await expect(page.locator('.ascii-art button')).toHaveCount(0);
+    if (width === 1440) {
+      await page.waitForTimeout(5500);
+      const laterFrame = await pixels();
+      await expect.poll(pixels).not.toBe(laterFrame);
+    }
     expect(await canvas.boundingBox()).toEqual(bounds);
     await page.getByRole('button', { name: 'ไทย', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'เล่นภาพเคลื่อนไหวต่อ' })).toBeVisible();
-    await page.getByRole('button', { name: 'เล่นภาพเคลื่อนไหวต่อ' }).click();
-    await expect(page.getByRole('button', { name: 'หยุดภาพเคลื่อนไหว' })).toBeVisible();
+    await expect(page.locator('.ascii-art button')).toHaveCount(0);
+    const thaiFrame = await pixels();
+    await expect.poll(pixels).not.toBe(thaiFrame);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
@@ -253,12 +252,38 @@ test('ascii hero is static on reduced motion including a live preference change'
   const staticFrame = await pixels(); await page.waitForTimeout(250);
   expect(await pixels()).toBe(staticFrame);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(page.getByRole('button', { name: 'Pause animation' })).toBeVisible();
+  await expect(art).toHaveAttribute('data-motion', 'running');
+  await expect(art.locator('button')).toHaveCount(0);
   await expect.poll(pixels).not.toBe(staticFrame);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(art).toHaveAttribute('data-motion', 'reduced');
   const stopped = await pixels(); await page.waitForTimeout(250); expect(await pixels()).toBe(stopped);
   await expect(page.locator('.hero-display')).toHaveText('Think boldly.Build responsibly.');
+});
+
+test('ascii animation suspends while the document is hidden and resumes when visible', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const canvas = page.locator('.ascii-canvas');
+  await expect(canvas).toBeVisible();
+  const pixels = () => canvas.evaluate(element => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('Canvas missing');
+    return element.toDataURL();
+  });
+  const initialFrame = await pixels();
+  await expect.poll(pixels).not.toBe(initialFrame);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const hiddenFrame = await pixels();
+  await page.waitForTimeout(650);
+  expect(await pixels()).toBe(hiddenFrame);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(pixels).not.toBe(hiddenFrame);
 });
 
 test('micro interaction feedback uses transforms with visible keyboard focus and reduced-motion alternatives', async ({ page }) => {
@@ -311,12 +336,10 @@ test('asciiBackgroundOverlapsHeroHeadlineWithoutCoveringItsCopy', async ({ page 
   expect(composition.copyLayer).toBeGreaterThan(composition.artLayer);
   expect(composition.headlineText).toContain('Think boldly.');
   expect(composition.headlineText).toContain('Build responsibly.');
-  const pause = page.getByRole('button', { name: 'Pause animation' });
-  await expect(pause).toHaveAttribute('aria-label', 'Pause animation');
-  await expect(pause).toHaveText('');
+  await expect(page.locator('.ascii-art button')).toHaveCount(0);
 });
 
-test('mobile ASCII glyphs soften without fading the animation control', async ({ page }) => {
+test('mobile ASCII artwork has no control and its glyphs soften', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   await expect(page.locator('.ascii-canvas')).toBeVisible();
@@ -326,10 +349,7 @@ test('mobile ASCII glyphs soften without fading the animation control', async ({
   const mobileOpacity = await opacity();
   expect(mobileOpacity).toBeGreaterThan(0);
   expect(mobileOpacity).toBeLessThan(desktopOpacity);
-  const pause = page.getByRole('button', { name: 'Pause animation' });
-  await expect(pause).toHaveCSS('opacity', '1');
-  await pause.click();
-  await expect(page.getByRole('button', { name: 'Resume animation' })).toBeVisible();
+  await expect(page.locator('.ascii-art button')).toHaveCount(0);
 });
 
 test('homepage backdrop leaves coral for the ACT hero instead of washing the whole page', async ({ page }) => {
