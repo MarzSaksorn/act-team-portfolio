@@ -1,64 +1,68 @@
 # Avoonger Competition Team (ACT)
 
-ACT’s English/Thai portfolio introduces the team and gives its competitions and projects separate homes. It uses selective coral glass surfaces, deep-teal text, local fonts, keyboard navigation, reduced-motion and reduced-transparency fallbacks. There’s no backend, application form, or member database.
+ACT's English/Thai portfolio has separate Home, Competitions, and Projects pages, plus a private `/admin` editor. One Node.js service renders live SQLite content and serves the API and client assets. The static build still works without a backend. This isn't a member database or public registration system.
 
-The exact main brand color is `#F35857`. The [coral palette](docs/color-palette.md) documents its 11-shade scale, semantic CSS tokens, and calculated contrast. Small white-text actions use a darker coral rather than the exact brand so their text meets AA contrast.
+The design retains the coral glass surfaces, deep-teal text, local fonts, keyboard navigation, and reduced-motion/transparency fallbacks. The exact brand color is `#F35857`, with a decorative `#669BBC` touch. See the [palette](docs/color-palette.md) and [typography notes](docs/typography.md).
 
-The [typography notes](docs/typography.md) document Aqua Grotesque for the hero, Alegreya Sans for secondary text, the Thai-capable fallback, and the bundled font notices.
+## Static development
 
-## Run locally
-
-Use Node.js 22.22.2+ within 22.x, 24.15+ within 24.x, or 26+. These ranges cover the locked build and test tools. Use the pinned pnpm version.
+Use the pinned `pnpm@11.25.0`. The Docker production target is Node 24. The existing locked tools also run on Node 22.22.2+ within 22.x, Node 24.15+ within 24.x, or Node 26+.
 
 ```sh
-npm install --global pnpm@11.25.0
 pnpm install --frozen-lockfile
-cp .env.example .env.local
 pnpm dev
 ```
 
-Open the local server on port 3000. The Manus project runs this command through its managed development process; don’t start a second server there.
+The Manus Preview runs this static development command on port 3000. Don't start another server on that port there. `/admin` explains that its backend is unavailable in static Preview; it doesn't pretend to save edits. Manus-managed server/database features and Auto Publish stay off.
+
+## Run the full app
+
+Read [admin and Coolify operations](docs/admin.md) for local setup, runtime secrets, storage permissions, backup/restore, and the external-builder handoff.
 
 ```sh
-pnpm test -- --run
+pnpm build
+pnpm admin:hash
+# Set private runtime environment variables first.
+pnpm start
+```
+
+`pnpm start` runs `node dist-server/server/index.js` and reads already-exported variables. Local Compose is another test path: copy `.env.example` to `.env`, fill its private runtime values, and use `docker compose up --build`. It binds only `127.0.0.1:3000` and keeps `/data` and `/backups` in different named volumes. Its development-mode override supports local HTTP only; don't deploy the Compose file to production.
+
+For Coolify, use one source-based Dockerfile application with its dedicated build server, registry push/pull access, and persistent mounts. The image runs as non-root, defaults to production, and requires HTTPS for admin cookies. Run one app instance. Production resources, credentials, domain, and deployment remain manual and haven't been configured.
+
+## Verification
+
+```sh
+pnpm exec vitest run
+pnpm exec vitest run --config vitest.server.config.ts --coverage
 pnpm build
 pnpm test:static
 pnpm exec playwright install chromium
 pnpm test:e2e
+pnpm exec redocly lint docs/openapi.yaml
+node scripts/container-smoke.mjs
 ```
 
-Browser tests expect the development server to already run on port 3000. `pnpm build` checks TypeScript, bundles the client, and generates meaningful English HTML for all three routes. Deploy `dist/` to a static host that supports directory index pages and the client’s missing-route fallback. Language switching and navigation remain interactive. No production deployment has been requested or made.
+Browser suites launch the compiled runtime on isolated port 3100 with fake credentials. Admin and public suites run sequentially with fresh databases so mutations can't leak into default-content checks. They don't reuse Preview. The build checks frontend and server TypeScript, creates client assets, compiles the runtime and utilities, and prerenders the static fallback.
 
-## Structure
+Docker isn't available in the implementation Sandbox. The real image build, Compose validation, and container smoke test still need a Docker-enabled machine before deployment. The native tests don't prove the image starts.
 
-`src/pages/` contains Home, Competitions, and Projects. `src/components/` owns shared navigation, safe Discord onboarding links, and record cards. `src/i18n/` contains typed English/Thai copy and the persisted `act-locale` preference. `src/data/` holds public, reviewed portfolio data. `src/types/` defines the record contracts. `src/styles/` holds tokens, layouts, and glass fallbacks. `src/prerender.tsx` and `scripts/prerender.mjs` generate static HTML using the actual React pages. `tests/` contains unit, static-output, and browser checks.
+## Content and privacy
+
+Sign in at `/admin` to update bilingual site copy, the upcoming event, projects, and competition records. Required fields need English and Thai. Saves appear on the next public request without rebuilding. Stale revisions return a conflict while preserving your unsaved draft.
+
+First boot seeds the reviewed source defaults only. Projects and founder/ACT competition groups stay empty until ACT supplies facts. Founder experience before ACT belongs only to founder history; it isn't ACT's result. BSD The White Garden, Saraburi remains planned and not registered, with the existing January 2027 schedule and official link. Recheck organizer dates and ACT's real registration status before launch.
+
+Don't publish ages, birthdays, school details, personal contacts, or private Discord information. Get agreement for member names and approved evidence. A volume isn't a backup. Use the consistent online backup utility, keep copies off-host, and test restore.
 
 ## Discord
 
-Set only the public invite in `.env.local` or the deployment environment:
+The optional public `VITE_DISCORD_INVITE_URL` remains a build-time setting for static development. Set it in ignored `.env.local` only after ACT supplies a reviewed welcome-area invite. Only HTTPS `discord.gg/<invite>` and `discord.com/invite/<invite>` values become links. Invalid or empty values show the translated invite-coming-soon state.
 
-```dotenv
-VITE_DISCORD_INVITE_URL=https://discord.gg/YOUR_ACT_INVITE
-```
+Docker excludes all `.env` files, and runtime `VITE_` variables won't change the already-built browser bundle. The current image therefore keeps the safe invite-coming-soon fallback. Don't put tokens, passwords, or private channels in frontend settings. Configure Discord roles separately and check with an unapproved newcomer account.
 
-Only HTTPS `discord.gg/<invite>` and `discord.com/invite/<invite>` URLs become links. An empty or invalid value displays the translated “invite coming soon” message. `VITE_` values enter the browser bundle; never put tokens, passwords, or private channel details there. Rebuild after changing the invite.
+## Structure
 
-The site can’t enforce Discord roles. Configure the actual server invite, welcome area, and permissions so newcomers can’t see private channels before approval. Confirm this with a newcomer account before launch.
+`src/pages/`, `src/components/`, `src/i18n/`, and `src/styles/` own the public interface. `src/admin/` contains the bilingual editor and same-origin API client. `src/types/` holds Zod contracts; `src/data/` holds safe seed/static defaults. `server/db/` handles migrations and transactional storage, `server/routes/` the versioned API, `server/auth/` sessions and scrypt, and `server/runtime.ts` startup/shutdown. `server/scripts/` contains operational utilities. Tests cover UI, SQLite, API, rendering, native runtime, static output, and browsers. The [OpenAPI contract](docs/openapi.yaml) describes `/api/v1`.
 
-## Add factual content
-
-Keep production arrays empty until ACT supplies real records. Test fixtures are not portfolio content.
-
-- `src/data/competitions.ts`: put founder experience only in `founderHistory` with `recordType: 'founder-pre-act'`. Put events entered as ACT only in `actHistory` with `recordType: 'act'`. Provide the event, year, approved participants, stage/result, contribution, and approved public evidence when available. A founder’s earlier result is not ACT’s result.
-- `src/data/projects.ts`: add an actual project with `planned`, `in-progress`, or `completed` status. The current schema supports both language versions, the problem, summary, dates, business thinking, individual contributions, and supplied public links. Dedicated AI/sustainability focus fields and accessible project media still need a schema/card extension before ACT supplies them.
-- `src/data/upcomingCompetition.ts`: BSD The White Garden, Saraburi is a planned target, not a submitted or accepted entry. Update its status only after ACT confirms a change. Keep the displayed English/Thai labels and verified dates aligned in `src/i18n/messages.ts`.
-
-Use the exported TypeScript types rather than adding untyped objects. Supply HTTPS evidence/project URLs and useful media alternatives. Don’t add names without member agreement, or publish ages, birthdays, school details, personal contacts, or private Discord content. Run all checks after updates.
-
-## Before launch
-
-ACT still needs to provide approved display names, founders’ M.1 competition details and evidence, a real Discord invite, and English/Thai copy approval. Recheck ACT’s registration status and the organizer’s schedule at [futurecenter.ai/hackathon](https://futurecenter.ai/hackathon#talk). The current target schedule is January 16–17, 2027 in Saraburi, applications close January 10, and the final is January 23–24 at Paradise Park. These dates describe the event, not ACT’s qualification.
-
-Production has no confirmed public origin yet. Canonical URLs and domain-based sharing addresses are intentionally omitted rather than guessed. Configure them from ACT’s real production domain before launching. Unknown client routes show a translated missing-page view; configure a real HTTP 404 on the chosen host rather than relying on an SPA’s 200 fallback for search indexing.
-
-Only the sanitized source snapshot is intended for the public GitHub repository; private feature-development history is excluded. Website production publishing is separate and has not been performed.
+ACT still needs approved public names and history/evidence, a real invite, bilingual copy approval, and a real production origin before launch. Only reviewed source belongs in the public GitHub repository. Source handoff and website deployment are separate; production remains unpublished.

@@ -1,5 +1,17 @@
 node_modules/
 dist/
+dist-server/
+dist-ssr/
+coverage/
+data/
+backups/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.backup
+*.bak
+.superpowers/
 test-results/
 playwright-report/
 .env*

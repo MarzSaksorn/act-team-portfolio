@@ -1,14 +1,17 @@
-import { renderToString } from 'react-dom/server';
-import { StaticRouter } from 'react-router-dom';
-import App from './App';
-import { messages } from './i18n/messages';
+import { renderApp } from './entry-server';
+import { defaultSiteContent } from './data/defaultSiteContent';
+import type { Locale, SiteContentSnapshot } from './types/site-content';
 
 export const publicPages = [
-  { route: '/', label: messages.en.home, description: messages.en.homeDescription },
-  { route: '/competitions', label: messages.en.competitions, description: messages.en.competitionDescription },
-  { route: '/projects', label: messages.en.projects, description: messages.en.projectDescription },
+  { route: '/' },
+  { route: '/competitions' },
+  { route: '/projects' },
 ];
 
-export function renderPage(route: string): string {
-  return renderToString(<StaticRouter location={route}><App /></StaticRouter>);
+export function renderPage(
+  route: string,
+  snapshot: SiteContentSnapshot = defaultSiteContent,
+  locale: Locale = 'en',
+): string {
+  return renderApp(route, snapshot, locale);
 }

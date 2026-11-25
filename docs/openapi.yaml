@@ -1,0 +1,1099 @@
+openapi: 3.1.0
+info:
+  title: ACT Portfolio Content API
+  version: 1.0.0
+  summary: Versioned API for public ACT portfolio content and private administration.
+  description: |
+    The API serves a validated public snapshot and lets one administrator edit bilingual ACT content.
+    The `/api/v1` contract remains backward-compatible. Breaking changes belong under a new major path.
+    Admin sessions use an opaque HttpOnly cookie and a session-bound CSRF header. Content writes also
+    require the global revision ETag in `If-Match`. Login failures are limited to five attempts per
+    fifteen minutes per trusted client IP and normalized username. Content groups are capped at 100.
+servers:
+  - url: /
+    description: Same-origin service. No production hostname is assumed.
+tags:
+  - name: Health
+    description: Application readiness.
+  - name: Public content
+    description: Validated, allowlisted portfolio content.
+  - name: Administrator session
+    description: Single-administrator login and session management.
+  - name: Site copy
+    description: Bilingual editable homepage and team copy.
+  - name: Upcoming competition
+    description: The current planned event and registration state.
+  - name: Projects
+    description: Bilingual project records.
+  - name: Competitions
+    description: Separate founder-pre-ACT and ACT competition history.
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Check application and SQLite readiness
+      security: []
+      responses:
+        '200':
+          description: The application and initialized content database are ready.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+              example: { status: ok }
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/public/content:
+    get:
+      operationId: getPublicContent
+      tags: [Public content]
+      summary: Read the public content snapshot
+      description: Returns only public portfolio fields. No session rows or administrator credentials are exposed.
+      security: []
+      responses:
+        '200':
+          description: Validated public snapshot. Empty project and competition lists are valid.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteContentSnapshot' }
+              example:
+                revision: 0
+                siteCopy:
+                  homeTitle: { en: ACT Portfolio, th: พอร์ตโฟลิโอ ACT }
+                  homeDescription: { en: Avoonger Competition Team, th: ทีมแข่งขัน Avoonger }
+                  heroLabel: { en: Avoonger Competition Team, th: ทีมแข่งขัน Avoonger }
+                  heroLine1: { en: Think boldly., th: กล้าคิดให้ต่าง }
+                  heroLine2: { en: Build responsibly., th: สร้างอย่างรับผิดชอบ }
+                  heroBody: { en: We combine AI and sustainable technology with thoughtful business models., th: เราผสาน AI และเทคโนโลยีที่ยั่งยืนเข้ากับโมเดลธุรกิจที่รอบคอบ }
+                  forming: { en: Team forming, th: กำลังสร้างทีม }
+                  teamBody: { en: ACT brings founders together to explore responsible technology., th: ACT รวมผู้ก่อตั้งเพื่อสำรวจเทคโนโลยีอย่างรับผิดชอบ }
+                  teamCount: { en: Team, th: ทีม }
+                  teamCountValue: { en: 3 founders, th: สมาชิกผู้ก่อตั้ง 3 คน }
+                  teamStatus: { en: Building our team, th: กำลังสร้างทีม }
+                  focusLabel: { en: Our focus, th: สิ่งที่เราให้ความสำคัญ }
+                  focusHeading: { en: Technology with purpose, th: เทคโนโลยีที่มีเป้าหมาย }
+                  ai: { en: Artificial intelligence, th: ปัญญาประดิษฐ์ }
+                  aiText: { en: Practical AI, th: AI ที่ใช้งานได้จริง }
+                  sustainable: { en: Sustainable technology, th: เทคโนโลยีที่ยั่งยืน }
+                  sustainableText: { en: Better long-term outcomes, th: ผลลัพธ์ที่ดีในระยะยาว }
+                  business: { en: Business thinking, th: แนวคิดทางธุรกิจ }
+                  businessText: { en: Useful and viable ideas, th: แนวคิดที่เป็นประโยชน์และเป็นไปได้ }
+                  joinLabel: { en: Join ACT, th: เข้าร่วม ACT }
+                  joinHeading: { en: Build with us, th: มาสร้างไปด้วยกัน }
+                  joinBody: { en: We welcome thoughtful collaborators., th: เรายินดีต้อนรับผู้ร่วมทีมที่มีความตั้งใจ }
+                  discord: { en: Discord, th: Discord }
+                  inviteSoon: { en: Invite link coming soon, th: ลิงก์เชิญจะมาเร็ว ๆ นี้ }
+                  onboarding: { en: We will share onboarding details directly., th: เราจะแชร์รายละเอียดการเริ่มต้นโดยตรง }
+                upcomingCompetition:
+                  id: bsd-saraburi-2027
+                  name: { en: Build Something Different Hackathon, th: Build Something Different Hackathon }
+                  branch: { en: BSD The White Garden · Saraburi, th: BSD The White Garden · สระบุรี }
+                  note: { en: Planned; not registered., th: วางแผนไว้ ยังไม่ได้ลงทะเบียน }
+                  startDate: '2027-01-16'
+                  endDate: '2027-01-17'
+                  applicationDeadline: '2027-01-10'
+                  finalStartDate: '2027-01-23'
+                  finalEndDate: '2027-01-24'
+                  status: planned
+                  registration: not-registered
+                  officialUrl: https://futurecenter.ai/hackathon#talk
+                projects: []
+                competitions: { founderPreAct: [], act: [] }
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/session:
+    get:
+      operationId: getAdminSession
+      tags: [Administrator session]
+      summary: Inspect the current administrator session
+      description: 'Returns `authenticated: false` when the browser has no valid session cookie.'
+      security:
+        - AdminSessionCookie: []
+        - {}
+      responses:
+        '200':
+          description: Session state. This endpoint never returns the raw session cookie.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AuthenticatedSession'
+                  - $ref: '#/components/schemas/UnauthenticatedSession'
+              examples:
+                signedIn:
+                  value:
+                    authenticated: true
+                    csrfToken: 7M4-xLzL9khJoSuVk54c8X-j3RSf9n0q2iRztASpl4Y
+                    expiresAt: '2026-11-25T16:00:00.000Z'
+                signedOut:
+                  value: { authenticated: false }
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createAdminSession
+      tags: [Administrator session]
+      summary: Sign in as the administrator
+      description: |
+        Accepts only `username` and `password`. Successful login sets the opaque `act_session` cookie.
+        The response also returns the session-bound CSRF token. Login has no registration endpoint.
+        If `PUBLIC_ORIGIN` is configured, the `Origin` header must match it.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { username: act-admin, password: replace-with-a-secret }
+      responses:
+        '200':
+          description: Authenticated session created.
+          headers:
+            Set-Cookie:
+              description: HttpOnly, SameSite=Lax, Path=/; Secure is set in production.
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthenticatedSession' }
+              example:
+                authenticated: true
+                csrfToken: 7M4-xLzL9khJoSuVk54c8X-j3RSf9n0q2iRztASpl4Y
+                expiresAt: '2026-11-25T16:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteAdminSession
+      tags: [Administrator session]
+      summary: Revoke the current administrator session
+      description: Requires both the session cookie and its CSRF token.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: Session revoked and cookie cleared.
+          headers:
+            Set-Cookie:
+              description: Expired `act_session` cookie.
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnauthenticatedSession' }
+              example: { authenticated: false }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/site-copy:
+    get:
+      operationId: getAdminSiteCopy
+      tags: [Site copy]
+      summary: Read editable bilingual site copy
+      security:
+        - AdminSessionCookie: []
+      responses:
+        '200':
+          description: Full editable site copy and its current global content revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditableSiteCopy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      operationId: replaceAdminSiteCopy
+      tags: [Site copy]
+      summary: Replace all editable bilingual site copy
+      description: Every required field must contain both English and Thai text. HTML-like markup is rejected.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditableSiteCopy' }
+      responses:
+        '200':
+          description: Updated copy and the new global content revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteCopyMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/admin/upcoming-competition:
+    get:
+      operationId: getAdminUpcomingCompetition
+      tags: [Upcoming competition]
+      summary: Read the editable upcoming competition
+      security:
+        - AdminSessionCookie: []
+      responses:
+        '200':
+          description: Upcoming event and its current global content revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpcomingCompetition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      operationId: replaceAdminUpcomingCompetition
+      tags: [Upcoming competition]
+      summary: Replace the upcoming competition
+      description: Dates must be real ISO calendar dates in order; public URLs must use HTTPS.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpcomingCompetition' }
+            example:
+              id: bsd-saraburi-2027
+              name: { en: Build Something Different Hackathon, th: Build Something Different Hackathon }
+              branch: { en: BSD The White Garden · Saraburi, th: BSD The White Garden · สระบุรี }
+              note: { en: Planned; not registered., th: วางแผนไว้ ยังไม่ได้ลงทะเบียน }
+              startDate: '2027-01-16'
+              endDate: '2027-01-17'
+              applicationDeadline: '2027-01-10'
+              finalStartDate: '2027-01-23'
+              finalEndDate: '2027-01-24'
+              status: planned
+              registration: not-registered
+              officialUrl: https://futurecenter.ai/hackathon#talk
+      responses:
+        '200':
+          description: Updated event and the new global content revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpcomingCompetitionMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/admin/projects:
+    get:
+      operationId: listAdminProjects
+      tags: [Projects]
+      summary: List projects with bounded pagination
+      description: Pages may be empty when the requested page is beyond the last page. The collection has a maximum of 100 records.
+      security:
+        - AdminSessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sort
+          in: query
+          schema: { type: string, enum: [position, updatedAt], default: position }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
+      responses:
+        '200':
+          description: Paginated project records and relative navigation links.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      operationId: createAdminProject
+      tags: [Projects]
+      summary: Create a project
+      description: A maximum of 100 project records is allowed.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewProject' }
+            example:
+              title: { en: A responsible technology concept, th: แนวคิดเทคโนโลยีที่รับผิดชอบ }
+              summary: { en: A bilingual project summary., th: สรุปโครงการสองภาษา }
+              status: planned
+              contributions: []
+              links: []
+      responses:
+        '201':
+          description: Project created.
+          headers:
+            Location: { schema: { type: string, format: uri-reference } }
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/admin/projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: replaceAdminProject
+      tags: [Projects]
+      summary: Replace a project
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Project' }
+      responses:
+        '200':
+          description: Updated project and new global revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      operationId: deleteAdminProject
+      tags: [Projects]
+      summary: Delete a project
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: Project deleted and the global revision advanced.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NullMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/admin/competitions:
+    get:
+      operationId: listAdminCompetitions
+      tags: [Competitions]
+      summary: List one competition-attribution group
+      description: Attribution is required and is never inferred. Each group has a maximum of 100 records.
+      security:
+        - AdminSessionCookie: []
+      parameters:
+        - name: recordType
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/CompetitionAttribution' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sort
+          in: query
+          schema: { type: string, enum: [position, year], default: position }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
+      responses:
+        '200':
+          description: Paginated competition records for exactly the requested attribution.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompetitionPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      operationId: createAdminCompetition
+      tags: [Competitions]
+      summary: Create a competition record
+      description: The request must specify either `founder-pre-act` or `act`; these histories remain distinct.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewCompetition' }
+            example:
+              recordType: founder-pre-act
+              name: { en: Founder competition history, th: ประวัติการแข่งขันก่อนก่อตั้งทีม }
+              year: 2025
+              participants: [Founder]
+              stage: { en: Participant, th: ผู้เข้าร่วม }
+              evidenceUrl: https://example.test/evidence
+      responses:
+        '201':
+          description: Competition record created.
+          headers:
+            Location: { schema: { type: string, format: uri-reference } }
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompetitionMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/admin/competitions/{competitionId}:
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: replaceAdminCompetition
+      tags: [Competitions]
+      summary: Replace a competition record
+      description: The body must include the same record ID as the path and an explicit attribution.
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompetitionRecord' }
+      responses:
+        '200':
+          description: Updated competition and new global revision.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompetitionMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      operationId: deleteAdminCompetition
+      tags: [Competitions]
+      summary: Delete a competition record
+      security:
+        - AdminSessionCookie: []
+          CsrfToken: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: Competition deleted and the global revision advanced.
+          headers:
+            ETag: { $ref: '#/components/headers/RevisionEtag' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NullMutation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  securitySchemes:
+    AdminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: act_session
+      description: Opaque random session identifier. The database stores only its SHA-256 hash.
+    CsrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Session-bound CSRF token returned after successful authentication.
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Session-bound CSRF value. Never store it in localStorage.
+      schema: { type: string, minLength: 43, maxLength: 43 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Current global content revision, exactly as returned by ETag.
+      schema: { type: string, pattern: '^"(0|[1-9][0-9]*)"$' }
+      example: '"12"'
+    Origin:
+      name: Origin
+      in: header
+      required: false
+      description: When PUBLIC_ORIGIN is configured, this must match that origin for state-changing browser requests.
+      schema: { type: string, format: uri }
+    Page:
+      name: page
+      in: query
+      required: false
+      description: One-based page number. Out-of-range pages return an empty data array.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of records in a page.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  headers:
+    RevisionEtag:
+      description: Quoted global content revision used as the write precondition.
+      schema: { type: string, pattern: '^"(0|[1-9][0-9]*)"$' }
+      example: '"12"'
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type: { type: string, format: uri-reference, example: 'urn:act:problem:validation-error' }
+        title: { type: string, example: Validation failed }
+        status: { type: integer, example: 422 }
+        detail: { type: string, example: The request content is invalid. }
+        instance: { type: string, format: uri-reference, example: /api/v1/admin/site-copy }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string, example: heroBody.th }
+              message: { type: string, example: The value is invalid. }
+            additionalProperties: false
+      additionalProperties: true
+    LocalizedText:
+      type: object
+      required: [en, th]
+      properties:
+        en: { type: string, minLength: 1, maxLength: 2000 }
+        th: { type: string, minLength: 1, maxLength: 2000 }
+      additionalProperties: false
+    EditableSiteCopy:
+      type: object
+      required:
+        - homeTitle
+        - homeDescription
+        - heroLabel
+        - heroLine1
+        - heroLine2
+        - heroBody
+        - forming
+        - teamBody
+        - teamCount
+        - teamCountValue
+        - teamStatus
+        - focusLabel
+        - focusHeading
+        - ai
+        - aiText
+        - sustainable
+        - sustainableText
+        - business
+        - businessText
+        - joinLabel
+        - joinHeading
+        - joinBody
+        - discord
+        - inviteSoon
+        - onboarding
+      properties:
+        homeTitle: { $ref: '#/components/schemas/LocalizedText' }
+        homeDescription: { $ref: '#/components/schemas/LocalizedText' }
+        heroLabel: { $ref: '#/components/schemas/LocalizedText' }
+        heroLine1: { $ref: '#/components/schemas/LocalizedText' }
+        heroLine2: { $ref: '#/components/schemas/LocalizedText' }
+        heroBody: { $ref: '#/components/schemas/LocalizedText' }
+        forming: { $ref: '#/components/schemas/LocalizedText' }
+        teamBody: { $ref: '#/components/schemas/LocalizedText' }
+        teamCount: { $ref: '#/components/schemas/LocalizedText' }
+        teamCountValue: { $ref: '#/components/schemas/LocalizedText' }
+        teamStatus: { $ref: '#/components/schemas/LocalizedText' }
+        focusLabel: { $ref: '#/components/schemas/LocalizedText' }
+        focusHeading: { $ref: '#/components/schemas/LocalizedText' }
+        ai: { $ref: '#/components/schemas/LocalizedText' }
+        aiText: { $ref: '#/components/schemas/LocalizedText' }
+        sustainable: { $ref: '#/components/schemas/LocalizedText' }
+        sustainableText: { $ref: '#/components/schemas/LocalizedText' }
+        business: { $ref: '#/components/schemas/LocalizedText' }
+        businessText: { $ref: '#/components/schemas/LocalizedText' }
+        joinLabel: { $ref: '#/components/schemas/LocalizedText' }
+        joinHeading: { $ref: '#/components/schemas/LocalizedText' }
+        joinBody: { $ref: '#/components/schemas/LocalizedText' }
+        discord: { $ref: '#/components/schemas/LocalizedText' }
+        inviteSoon: { $ref: '#/components/schemas/LocalizedText' }
+        onboarding: { $ref: '#/components/schemas/LocalizedText' }
+      additionalProperties: false
+    CompetitionAttribution:
+      type: string
+      enum: [founder-pre-act, act]
+    UpcomingCompetition:
+      type: object
+      required: [id, name, branch, note, startDate, endDate, applicationDeadline, finalStartDate, finalEndDate, status, registration, officialUrl]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 120 }
+        name: { $ref: '#/components/schemas/LocalizedText' }
+        branch: { $ref: '#/components/schemas/LocalizedText' }
+        note: { $ref: '#/components/schemas/LocalizedText' }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        applicationDeadline: { type: string, format: date }
+        finalStartDate: { type: string, format: date }
+        finalEndDate: { type: string, format: date }
+        status: { type: string, enum: [planned, confirmed, completed, postponed, cancelled] }
+        registration: { type: string, enum: [not-registered, registered, registration-closed] }
+        officialUrl: { type: string, format: uri, pattern: '^https://' }
+      additionalProperties: false
+    ProjectContribution:
+      type: object
+      required: [name, description]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { $ref: '#/components/schemas/LocalizedText' }
+      additionalProperties: false
+    ProjectLink:
+      type: object
+      required: [label, url]
+      properties:
+        label: { $ref: '#/components/schemas/LocalizedText' }
+        url: { type: string, format: uri, pattern: '^https://' }
+      additionalProperties: false
+    NewProject:
+      type: object
+      required: [title, summary, status]
+      properties:
+        title: { $ref: '#/components/schemas/LocalizedText' }
+        summary: { $ref: '#/components/schemas/LocalizedText' }
+        status: { type: string, enum: [planned, in-progress, completed] }
+        problem: { $ref: '#/components/schemas/LocalizedText' }
+        businessModel: { $ref: '#/components/schemas/LocalizedText' }
+        contributions:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ProjectContribution' }
+        dates: { type: string, maxLength: 2000 }
+        links:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ProjectLink' }
+      additionalProperties: false
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/NewProject'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+          additionalProperties: false
+    CompetitionFields:
+      type: object
+      required: [recordType, name, year, stage]
+      properties:
+        recordType: { $ref: '#/components/schemas/CompetitionAttribution' }
+        name: { $ref: '#/components/schemas/LocalizedText' }
+        year: { type: integer, minimum: 1900, maximum: 2100 }
+        participants:
+          type: array
+          maxItems: 50
+          items: { type: string, minLength: 1, maxLength: 120 }
+        stage: { $ref: '#/components/schemas/LocalizedText' }
+        contribution: { $ref: '#/components/schemas/LocalizedText' }
+        evidenceUrl: { type: string, format: uri, pattern: '^https://' }
+      additionalProperties: false
+    NewCompetition:
+      $ref: '#/components/schemas/CompetitionFields'
+    CompetitionRecord:
+      allOf:
+        - $ref: '#/components/schemas/CompetitionFields'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+          additionalProperties: false
+    SiteContentSnapshot:
+      type: object
+      required: [revision, siteCopy, upcomingCompetition, projects, competitions]
+      properties:
+        revision: { type: integer, minimum: 0 }
+        siteCopy: { $ref: '#/components/schemas/EditableSiteCopy' }
+        upcomingCompetition: { $ref: '#/components/schemas/UpcomingCompetition' }
+        projects:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/Project' }
+        competitions:
+          type: object
+          required: [founderPreAct, act]
+          properties:
+            founderPreAct:
+              type: array
+              maxItems: 100
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/CompetitionRecord'
+                  - type: object
+                    properties:
+                      recordType: { const: founder-pre-act }
+            act:
+              type: array
+              maxItems: 100
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/CompetitionRecord'
+                  - type: object
+                    properties:
+                      recordType: { const: act }
+          additionalProperties: false
+      additionalProperties: false
+    Pagination:
+      type: object
+      required: [page, limit, total, hasMore, hasPrevious]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+        hasPrevious: { type: boolean }
+      additionalProperties: false
+    PageLinks:
+      type: object
+      required: [first, previous, next, last]
+      properties:
+        first: { type: string, format: uri-reference }
+        previous: { type: [string, 'null'], format: uri-reference }
+        next: { type: [string, 'null'], format: uri-reference }
+        last: { type: string, format: uri-reference }
+      additionalProperties: false
+    ProjectPage:
+      type: object
+      required: [data, pagination, links]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Project' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+        links: { $ref: '#/components/schemas/PageLinks' }
+      additionalProperties: false
+    CompetitionPage:
+      type: object
+      required: [data, pagination, links]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/CompetitionRecord' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+        links: { $ref: '#/components/schemas/PageLinks' }
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 120 }
+        password: { type: string, minLength: 1, maxLength: 1024, format: password }
+      additionalProperties: false
+    AuthenticatedSession:
+      type: object
+      required: [authenticated, csrfToken, expiresAt]
+      properties:
+        authenticated: { type: boolean, const: true }
+        csrfToken: { type: string, minLength: 43, maxLength: 43 }
+        expiresAt: { type: string, format: date-time }
+      additionalProperties: false
+    UnauthenticatedSession:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated: { type: boolean, const: false }
+      additionalProperties: false
+    SiteCopyMutation:
+      type: object
+      required: [resource, revision]
+      properties:
+        resource: { $ref: '#/components/schemas/EditableSiteCopy' }
+        revision: { type: integer, minimum: 1 }
+      additionalProperties: false
+    UpcomingCompetitionMutation:
+      type: object
+      required: [resource, revision]
+      properties:
+        resource: { $ref: '#/components/schemas/UpcomingCompetition' }
+        revision: { type: integer, minimum: 1 }
+      additionalProperties: false
+    ProjectMutation:
+      type: object
+      required: [resource, revision]
+      properties:
+        resource: { $ref: '#/components/schemas/Project' }
+        revision: { type: integer, minimum: 1 }
+      additionalProperties: false
+    CompetitionMutation:
+      type: object
+      required: [resource, revision]
+      properties:
+        resource: { $ref: '#/components/schemas/CompetitionRecord' }
+        revision: { type: integer, minimum: 1 }
+      additionalProperties: false
+    NullMutation:
+      type: object
+      required: [resource, revision]
+      properties:
+        resource: { type: 'null' }
+        revision: { type: integer, minimum: 1 }
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Malformed JSON or invalid conditional request header.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:malformed-json', title: Malformed JSON, status: 400, detail: The request body must contain valid JSON., instance: /api/v1/admin/projects }
+    Unauthorized:
+      description: No valid administrator session, or credentials do not match.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:authentication-required', title: Authentication required, status: 401, detail: Sign in to manage ACT content., instance: /api/v1/admin/site-copy }
+    Forbidden:
+      description: The origin or CSRF token failed verification.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:csrf-rejected', title: Request verification failed, status: 403, detail: A valid session-bound CSRF token is required., instance: /api/v1/admin/site-copy }
+    NotFound:
+      description: The identified project or competition does not exist.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:not-found', title: Resource not found, status: 404, detail: The requested content resource was not found., instance: /api/v1/admin/projects/00000000-0000-4000-8000-000000000000 }
+    Conflict:
+      description: The group has reached its record limit.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:content-limit-reached', title: Content limit reached, status: 409, detail: The maximum number of records has been reached., instance: /api/v1/admin/projects }
+    PreconditionFailed:
+      description: The supplied revision is stale.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:precondition-failed', title: Content has changed, status: 412, detail: Reload the latest content before saving again., instance: /api/v1/admin/site-copy }
+    PayloadTooLarge:
+      description: Request body exceeds 512 KiB.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:payload-too-large', title: Payload too large, status: 413, detail: The request body exceeds the 512 KiB limit., instance: /api/v1/admin/site-copy }
+    UnsupportedMediaType:
+      description: Request body is not JSON.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:unsupported-media-type', title: Unsupported media type, status: 415, detail: Send the request body as JSON., instance: /api/v1/admin/projects }
+    ValidationError:
+      description: Request fields, query values, dates, URLs, bilingual values, or markup failed validation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: 'urn:act:problem:validation-error'
+            title: Validation failed
+            status: 422
+            detail: The request content is invalid.
+            instance: /api/v1/admin/site-copy
+            errors:
+              - { field: heroBody.th, message: The value is invalid. }
+    PreconditionRequired:
+      description: The request omitted If-Match.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:precondition-required', title: Precondition required, status: 428, detail: Send the current content ETag in the If-Match header., instance: /api/v1/admin/site-copy }
+    TooManyRequests:
+      description: A bounded API or login request limit was exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until another request is accepted.
+          schema: { type: integer, minimum: 1 }
+        RateLimit:
+          description: Standardized rate-limit policy and remaining quota.
+          schema: { type: string }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:rate-limit-exceeded', title: Too many login attempts, status: 429, detail: Wait before trying to sign in again., instance: /api/v1/admin/session }
+    InternalError:
+      description: Unexpected failure. Internal messages and stack traces are not exposed.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: 'urn:act:problem:internal-error', title: Internal server error, status: 500, detail: The request could not be completed., instance: /api/v1/public/content }
+    ServiceUnavailable:
+      description: Application or SQLite content state is not ready.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, const: unavailable }
+          example: { status: unavailable }

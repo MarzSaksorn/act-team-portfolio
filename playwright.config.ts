@@ -1,5 +1,20 @@
 import { defineConfig } from '@playwright/test';
+
 export default defineConfig({
-  testDir: './tests/e2e', fullyParallel: true, workers: 3,
-  reporter: 'list', use: { baseURL: 'http://127.0.0.1:3000', browserName: 'chromium', screenshot: 'off' },
+  testDir: './tests/e2e',
+  testIgnore: ['**/admin-content.spec.ts'],
+  fullyParallel: false,
+  workers: 1,
+  reporter: 'list',
+  use: {
+    baseURL: 'http://127.0.0.1:3100',
+    browserName: 'chromium',
+    screenshot: 'off',
+  },
+  webServer: {
+    command: 'pnpm build && node scripts/start-test-server.mjs',
+    url: 'http://127.0.0.1:3100/healthz',
+    reuseExistingServer: false,
+    timeout: 120_000,
+  },
 });

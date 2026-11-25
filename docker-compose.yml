@@ -1,0 +1,26 @@
+# Local full-stack testing only. Use a Dockerfile application in Coolify.
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # Local HTTP only. The Dockerfile defaults to production and Secure cookies.
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_PATH: /data/act.sqlite
+      ADMIN_USERNAME: "${ADMIN_USERNAME:?Set ADMIN_USERNAME in a local .env}"
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?Set ADMIN_PASSWORD_HASH in a local .env}"
+      SESSION_SECRET: "${SESSION_SECRET:?Set SESSION_SECRET in a local .env}"
+      SESSION_TTL_SECONDS: "${SESSION_TTL_SECONDS:-28800}"
+      TRUST_PROXY_HOPS: "${TRUST_PROXY_HOPS:-0}"
+      PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-}"
+    volumes:
+      - act-data:/data
+      - act-backups:/backups
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 15s
+volumes:
+  act-data:
+  act-backups:

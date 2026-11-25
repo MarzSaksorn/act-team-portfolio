@@ -19,13 +19,15 @@ function contrastRatio(foreground: string, background: string): number {
   return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
 }
 
-for (const width of [360, 768, 1440]) {
+for (const width of [320, 360, 768, 1440]) {
   for (const route of ['/', '/competitions', '/projects']) {
     test(`allPagesFitMobileViewport ${width} ${route}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 }); await page.goto(route);
+      await page.evaluate(async () => { await document.fonts.ready; });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       for (const label of ['Home', 'Competitions', 'Projects']) await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'ไทย', exact: true }).click();
+      await page.evaluate(async () => { await document.fonts.ready; });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
   }

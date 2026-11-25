@@ -207,7 +207,7 @@ html[lang='th'] .hero-team { font-size: 12px; }
   .language-switch button { min-height: 28px; font-size: 10px; min-width: 27px; }
   .hero { flex-direction: column; align-items: stretch; gap: 0; min-height: auto; padding: 43px 0 38px; }
   .hero-team { font-size: 10px; margin-bottom: 23px; }
-  .hero-display { font-size: clamp(39px, 9vw, 57px); letter-spacing: -.035em; }
+  .hero-display { font-size: clamp(20px, 9vw, 57px); letter-spacing: -.035em; text-wrap: wrap; overflow-wrap: anywhere; }
   .hero-body { font-size: 14px; line-height: 1.8; margin-top: 22px; }
   .hero-actions { gap: 16px; margin-top: 24px; }
   .button { font-size: 11px; gap: 12px; padding: 13px 16px; }
@@ -219,7 +219,7 @@ html[lang='th'] .hero-team { font-size: 12px; }
   .art-topline { font-size: 9px; }
   .art-stamp { right: -8px; }
   .orbit-one { right: -12px; width: 260px; height: 260px; }
-  .orbit-two { left: -8px; width: 290px; }
+  .orbit-two { left: -8px; width: min(290px, 70vw); height: min(220px, 53vw); }
   .about-strip { grid-template-columns: 1fr; gap: 19px; padding-block: 29px; }
   .about-strip h2 { max-width: none; font-size: 25px; }
   .about-strip > p { font-size: 12px; }
