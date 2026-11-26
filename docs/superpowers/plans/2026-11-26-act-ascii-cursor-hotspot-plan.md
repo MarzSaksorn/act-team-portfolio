@@ -76,6 +76,6 @@
 
   Expected: the browser confirms a real mouse response without canvas movement, existing motion/accessibility behavior remains intact, all frontend tests/type checks/build pass, and the diff has no whitespace errors. Inspect the rendered cursor response at desktop size and confirm the hotspot stays compact and does not compete with hero copy.
 
-- [ ] **Step 7: Save and push the verified change safely**
+- [x] **Step 7: Save and push the verified change safely**
 
   Stage only the approved hotspot design, this plan, the component, and its tests; keep ignored `TODO.md` unstaged. Commit the verified source. Reconcile with `origin/main` using the project’s normal GitHub/checkpoint workflow, preserve any remote changes, and push only when a normal fast-forward is possible. Never force-push or publish production. Confirm the resulting checkpoint.
