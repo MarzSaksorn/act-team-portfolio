@@ -41,9 +41,9 @@ function heroElement(): Element {
   if (!hero) throw new Error('ASCII hero container was not rendered');
   return hero;
 }
-function movePointer(pointerType: string, clientX: number, clientY: number) {
+function movePointer(pointerType: string, clientX: number, clientY: number, target: Element = heroElement()) {
   const event = new PointerEvent('pointermove', { bubbles: true, pointerType, clientX, clientY });
-  act(() => { heroElement().dispatchEvent(event); });
+  act(() => { target.dispatchEvent(event); });
 }
 function pointerExit(eventType: 'pointerleave' | 'pointercancel') {
   act(() => { heroElement().dispatchEvent(new Event(eventType, { bubbles: true })); });
@@ -179,6 +179,15 @@ it('pointer response maps an offset scaled canvas to its logical grid', () => {
   movePointer('pen', 137, 185.5); advance(100);
   expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
   expect(glyphColor(frames.at(-1), 31, 14)).toBe('#BF0D0D');
+});
+
+it('foreground hero copy clears the highlight even when it overlaps the canvas', () => {
+  mount(); movePointer('mouse', 174, 171); advance(100);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+  const headline = document.querySelector('.hero-display span');
+  if (!headline) throw new Error('Foreground hero headline missing');
+  movePointer('mouse', 174, 171, headline); advance(200);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
 });
 
 it('pointer exit and cancel restore the ordinary frame', () => {

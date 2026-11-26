@@ -81,6 +81,12 @@
 
   Run `pnpm exec vitest run`, `pnpm exec vitest run --config vitest.server.config.ts --coverage`, `pnpm exec tsc --noEmit`, `pnpm exec tsc --project tsconfig.server.json --noEmit`, `pnpm build`, `pnpm test:static`, `pnpm test:e2e`, `pnpm exec redocly lint docs/openapi.yaml`, and `git diff --check`. Review the canvas output and diff to confirm the highlight stays local, the artwork never moves, touch/reduced-motion paths remain unchanged, and no unrequested files are included.
 
-- [ ] **Step 7: Commit and save the verified source**
+- [x] **Step 7: Commit and save the verified source**
 
   Stage only the approved design note, this plan, `src/components/AsciiHeroArt.tsx`, `tests/ascii-hero.test.tsx`, and `tests/e2e/responsive-accessibility.spec.ts`; do not stage the ignored local `TODO.md`. Because `.git/info/exclude` hides `docs/superpowers/`, force-add only the approved design and this plan. Commit as `feat: add cursor highlight to ASCII hero`. Fetch `origin/main` immediately before pushing and preserve any new remote work; push only when a normal fast-forward is possible, never force-push. Confirm the saved checkpoint and keep production unpublished.
+
+## Verification and execution decisions
+
+The original renderer failed the corrected pointer tests (6/14). The implemented feature passed the full frontend, server, static, and browser suites. A fresh reviewer then found that desktop foreground copy overlaps the canvas hit region. A regression reproduced this with 1 expected failure; excluding foreground `.hero-copy` event targets restored the base glyph color and resolved the finding. The final fix passed 62 frontend tests, 47 server tests, both strict TypeScript checks, the production build, 9 static checks, and all 12 affected ASCII/interaction browser checks. Before the fix, the complete browser suite passed 7 admin and 42 public checks; unchanged paths were not needlessly repeated. OpenAPI lint has 0 errors and 2 pre-existing optional warnings. Existing broader jsdom suites emit canvas-unavailable fallback notices; the focused ASCII suite is clean.
+
+**Rulings made:** The combined test step was split into focused behavior tests, which costs a few more test cases to maintain. Foreground `.hero-copy` events clear the highlight even where its rectangle overlaps the canvas, protecting the copy and matching the plan's copy-exclusion intent; the tradeoff is that cursor movement within that foreground rectangle does not trigger highlighting. No minor findings were deferred. Production remains unpublished; the source push and checkpoint are confirmed in the task delivery.

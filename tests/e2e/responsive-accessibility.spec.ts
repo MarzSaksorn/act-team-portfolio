@@ -254,10 +254,17 @@ test('ascii hero highlights nearby glyphs under the mouse without moving the can
     const context = element.getContext('2d');
     if (!context) throw new Error('Canvas context missing');
     const { data } = context.getImageData(0, 0, element.width, element.height);
+    const rect = element.getBoundingClientRect();
     for (let index = 0; index < data.length; index += 4) {
       if (data[index] === 191 && data[index + 1] === 13 && data[index + 2] === 13 && data[index + 3] === 255) {
         const pixel = index / 4;
-        return { x: pixel % element.width, y: Math.floor(pixel / element.width), width: element.width, height: element.height };
+        const x = pixel % element.width;
+        const y = Math.floor(pixel / element.width);
+        const clientX = rect.left + (Math.floor(x / 12) * 12 + 6) / element.width * rect.width;
+        const clientY = rect.top + (Math.floor(y / 18) * 18 + 9) / element.height * rect.height;
+        const target = document.elementFromPoint(clientX, clientY);
+        if (!target?.closest('.hero') || target.closest('.hero-copy')) continue;
+        return { x, y, width: element.width, height: element.height };
       }
     }
     throw new Error('No solid dark-red glyph pixel found');
@@ -274,6 +281,25 @@ test('ascii hero highlights nearby glyphs under the mouse without moving the can
   }, sample)).toEqual([243, 88, 87, 255]);
   expect(await canvas.boundingBox()).toEqual(bounds);
   await expect(page.locator('.ascii-surface')).toHaveCSS('pointer-events', 'none');
+  const overlap = await page.evaluate(() => {
+    const art = document.querySelector('.ascii-canvas');
+    const copy = document.querySelector('.hero-copy');
+    if (!art || !copy) throw new Error('Hero overlap targets missing');
+    const a = art.getBoundingClientRect();
+    const c = copy.getBoundingClientRect();
+    const left = Math.max(a.left, c.left); const right = Math.min(a.right, c.right);
+    const top = Math.max(a.top, c.top); const bottom = Math.min(a.bottom, c.bottom);
+    if (right <= left || bottom <= top) throw new Error('Expected copy/canvas overlap missing');
+    return { x: (left + right) / 2, y: (top + bottom) / 2 };
+  });
+  await page.mouse.move(overlap.x, overlap.y);
+  await expect.poll(() => canvas.evaluate((element, point) => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('ASCII canvas missing');
+    const context = element.getContext('2d');
+    if (!context) throw new Error('Canvas context missing');
+    return Array.from(context.getImageData(point.x, point.y, 1, 1).data);
+  }, sample)).toEqual([191, 13, 13, 255]);
+  expect(await canvas.boundingBox()).toEqual(bounds);
   await page.setViewportSize({ width: 320, height: 1000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('.hero-display')).toBeVisible();

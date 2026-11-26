@@ -93,6 +93,10 @@ export default function AsciiHeroArt(): ReactElement {
     const pointerMoved = (event: Event) => {
       if (!(event instanceof PointerEvent) || motionReduced || document.hidden) return;
       if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+      if (event.target instanceof Element && event.target.closest('.hero-copy')) {
+        clearPointer();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0 || event.clientX < rect.left || event.clientX >= rect.right
         || event.clientY < rect.top || event.clientY >= rect.bottom) {
