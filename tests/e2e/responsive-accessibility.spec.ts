@@ -241,6 +241,44 @@ for (const width of [320, 360, 768, 1024, 1440]) {
   });
 }
 
+test('ascii hero highlights nearby glyphs under the mouse without moving the canvas', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+  await page.evaluate(async () => { await document.fonts.ready; });
+  const canvas = page.locator('.ascii-canvas');
+  await expect(canvas).toBeVisible();
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error('ASCII canvas bounds missing');
+  const sample = await canvas.evaluate(element => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('ASCII canvas missing');
+    const context = element.getContext('2d');
+    if (!context) throw new Error('Canvas context missing');
+    const { data } = context.getImageData(0, 0, element.width, element.height);
+    for (let index = 0; index < data.length; index += 4) {
+      if (data[index] === 191 && data[index + 1] === 13 && data[index + 2] === 13 && data[index + 3] === 255) {
+        const pixel = index / 4;
+        return { x: pixel % element.width, y: Math.floor(pixel / element.width), width: element.width, height: element.height };
+      }
+    }
+    throw new Error('No solid dark-red glyph pixel found');
+  });
+  await page.mouse.move(
+    bounds.x + (Math.floor(sample.x / 12) * 12 + 6) / sample.width * bounds.width,
+    bounds.y + (Math.floor(sample.y / 18) * 18 + 9) / sample.height * bounds.height,
+  );
+  await expect.poll(() => canvas.evaluate((element, point) => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error('ASCII canvas missing');
+    const context = element.getContext('2d');
+    if (!context) throw new Error('Canvas context missing');
+    return Array.from(context.getImageData(point.x, point.y, 1, 1).data);
+  }, sample)).toEqual([243, 88, 87, 255]);
+  expect(await canvas.boundingBox()).toEqual(bounds);
+  await expect(page.locator('.ascii-surface')).toHaveCSS('pointer-events', 'none');
+  await page.setViewportSize({ width: 320, height: 1000 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.locator('.hero-display')).toBeVisible();
+});
+
 test('ascii hero is static on reduced motion including a live preference change', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/');
   const art = page.locator('.hero-art'); const canvas = page.locator('.ascii-canvas');
@@ -249,7 +287,11 @@ test('ascii hero is static on reduced motion including a live preference change'
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Canvas missing');
     return element.toDataURL();
   });
-  const staticFrame = await pixels(); await page.waitForTimeout(250);
+  const staticFrame = await pixels();
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error('ASCII canvas bounds missing');
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.waitForTimeout(250);
   expect(await pixels()).toBe(staticFrame);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect(art).toHaveAttribute('data-motion', 'running');
@@ -257,7 +299,9 @@ test('ascii hero is static on reduced motion including a live preference change'
   await expect.poll(pixels).not.toBe(staticFrame);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(art).toHaveAttribute('data-motion', 'reduced');
-  const stopped = await pixels(); await page.waitForTimeout(250); expect(await pixels()).toBe(stopped);
+  const stopped = await pixels();
+  await page.mouse.move(bounds.x + bounds.width / 3, bounds.y + bounds.height / 3);
+  await page.waitForTimeout(250); expect(await pixels()).toBe(stopped);
   await expect(page.locator('.hero-display')).toHaveText('Think boldly.Build responsibly.');
 });
 

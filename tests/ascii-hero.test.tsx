@@ -5,7 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
 
-let frames: string[][];
+type DrawnGlyph = { text: string; x: number; y: number; color: string };
+let frames: DrawnGlyph[][];
 let callbacks: Map<number, FrameRequestCallback>;
 let nextId: number;
 let reduced: boolean;
@@ -35,10 +36,26 @@ function art() {
   if (!canvas) throw new Error('ASCII canvas was not rendered');
   return canvas;
 }
+function heroElement(): Element {
+  const hero = art().closest('.hero');
+  if (!hero) throw new Error('ASCII hero container was not rendered');
+  return hero;
+}
+function movePointer(pointerType: string, clientX: number, clientY: number) {
+  const event = new PointerEvent('pointermove', { bubbles: true, pointerType, clientX, clientY });
+  act(() => { heroElement().dispatchEvent(event); });
+}
+function pointerExit(eventType: 'pointerleave' | 'pointercancel') {
+  act(() => { heroElement().dispatchEvent(new Event(eventType, { bubbles: true })); });
+}
+function glyphColor(frame: DrawnGlyph[] | undefined, column: number, row: number): string | undefined {
+  return frame?.find(glyph => glyph.x === column * 12 && glyph.y === row * 18)?.color;
+}
 
 beforeEach(() => {
   frames = []; callbacks = new Map(); nextId = 0;
   reduced = false; contextAvailable = true; motionListeners = new Set();
+  let fillStyle = '';
   // jsdom has no Canvas2D or browser frame clock. Record actual renderer output
   // at that boundary, while running the real HomePage and its effects.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => null);
@@ -46,11 +63,14 @@ beforeEach(() => {
     configurable: true,
     value: () => contextAvailable ? {
       clearRect: () => frames.push([]),
-      fillText: (text: string, x: number, y: number) => frames.at(-1)?.push(`${text}:${x}:${y}`),
+      fillText: (text: string, x: number, y: number) => frames.at(-1)?.push({ text, x, y, color: fillStyle }),
       setTransform: () => {},
-      fillStyle: '', font: '', textBaseline: '',
+      get fillStyle() { return fillStyle; },
+      set fillStyle(value: string) { fillStyle = value; },
+      font: '', textBaseline: '',
     } : null,
   });
+  vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 864, 576));
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     callbacks.set(++nextId, callback); return nextId;
   });
@@ -105,22 +125,76 @@ it('keeps drawing beyond five seconds without rendering a pause control', () => 
 
 it('reduced motion starts static without rendering a motion control', () => {
   reduced = true; mount(); const count = frames.length;
-  advance(1000); advance(2000); expect(frames).toHaveLength(count);
+  const staticFrame = frames.at(-1);
+  movePointer('mouse', 174, 171); advance(1000); advance(2000);
+  expect(frames).toHaveLength(count);
+  expect(frames.at(-1)).toEqual(staticFrame);
   expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
   expect(art().closest('.hero-art')).toHaveAttribute('data-motion', 'reduced');
 });
 
 it('live motion preference changes stop and restart the loop without a motion control', () => {
   mount();
-  changeMotion(true); const staticCount = frames.length;
-  advance(1000); expect(frames).toHaveLength(staticCount);
-  changeMotion(false); advance(2000); advance(3000);
+  movePointer('mouse', 174, 171); advance(100);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+  changeMotion(true); const staticFrame = frames.at(-1);
+  const staticCount = frames.length;
+  movePointer('mouse', 174, 171); advance(200); expect(frames).toHaveLength(staticCount);
+  expect(frames.at(-1)).toEqual(staticFrame);
+  changeMotion(false); advance(300);
   expect(frames.length).toBeGreaterThan(staticCount);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
+  movePointer('mouse', 174, 171); advance(400);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
   expect(art().closest('.hero-art')?.querySelector('button')).toBeNull();
   changeMotion(true); const stoppedCount = frames.length;
-  advance(4000); expect(frames).toHaveLength(stoppedCount);
-  changeMotion(false); advance(5000);
+  advance(500); expect(frames).toHaveLength(stoppedCount);
+  changeMotion(false); advance(600);
   expect(frames.length).toBeGreaterThan(stoppedCount);
+});
+
+it('mouse and pen pointers accent nearby glyphs without affecting distant glyphs', () => {
+  mount();
+  let time = 0;
+  for (const pointerType of ['mouse', 'pen']) {
+    movePointer(pointerType, 174, 171);
+    advance(time += 100);
+    expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+    expect(glyphColor(frames.at(-1), 31, 14)).toBe('#BF0D0D');
+    pointerExit('pointerleave'); advance(time += 100);
+    expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
+  }
+});
+
+it('pointer coordinates outside the canvas do not activate the highlight', () => {
+  mount(); movePointer('mouse', 174, 171); advance(100);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+  movePointer('mouse', 900, 171); advance(200);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
+});
+
+it('pointer response maps an offset scaled canvas to its logical grid', () => {
+  mount();
+  vi.spyOn(art(), 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 100, 432, 288));
+  movePointer('pen', 137, 185.5); advance(100);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+  expect(glyphColor(frames.at(-1), 31, 14)).toBe('#BF0D0D');
+});
+
+it('pointer exit and cancel restore the ordinary frame', () => {
+  mount();
+  let time = 0;
+  for (const eventType of ['pointerleave', 'pointercancel'] as const) {
+    movePointer('mouse', 174, 171); advance(time += 100);
+    expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');
+    pointerExit(eventType); advance(time += 100);
+    expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
+  }
+});
+
+it('touch pointer movement does not add a highlight', () => {
+  mount(); movePointer('touch', 174, 171); advance(100);
+  expect(glyphColor(frames.at(-1), 14, 9)).toBe('#BF0D0D');
 });
 
 it('hidden documents stop drawing and visibility resumes the loop', () => {
@@ -152,7 +226,10 @@ it('locale switches keep the artwork running without adding a motion control', a
 
 it('unmount cancels queued frames and detaches preference and visibility work', () => {
   const { unmount } = mount(); expect(callbacks.size).toBeGreaterThan(0);
+  const pointerRemovals = vi.spyOn(heroElement(), 'removeEventListener');
   unmount(); const count = frames.length;
+  expect(pointerRemovals.mock.calls.map(([type]) => type).filter(type => type.startsWith('pointer')).sort())
+    .toEqual(['pointercancel', 'pointerleave', 'pointermove']);
   advance(1000); changeMotion(true);
   act(() => document.dispatchEvent(new Event('visibilitychange')));
   expect(frames).toHaveLength(count);
