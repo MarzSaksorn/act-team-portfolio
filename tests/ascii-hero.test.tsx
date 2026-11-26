@@ -166,6 +166,13 @@ it('mouse and pen pointers accent nearby glyphs without affecting distant glyphs
   }
 });
 
+it('cursor hotspot has a coral core and a short fade to the unchanged edge', () => {
+  mount(); movePointer('mouse', 174, 171); advance(100);
+  expect(glyphColor(frames.at(-1), 15, 10)).toBe('#F35857');
+  expect(glyphColor(frames.at(-1), 17, 7)).toBe('#CC2020');
+  expect(glyphColor(frames.at(-1), 10, 11)).toBe('#BF0D0D');
+});
+
 it('pointer coordinates outside the canvas do not activate the highlight', () => {
   mount(); movePointer('mouse', 174, 171); advance(100);
   expect(glyphColor(frames.at(-1), 14, 9)).toBe('#F35857');

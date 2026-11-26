@@ -5,7 +5,8 @@ const ROWS = 32;
 const CELL_WIDTH = 12;
 const CELL_HEIGHT = 18;
 const FRAME_INTERVAL = 1000 / 12;
-const HIGHLIGHT_RADIUS = CELL_WIDTH * 8;
+const HIGHLIGHT_CORE_RADIUS = CELL_WIDTH * 2;
+const HIGHLIGHT_RADIUS = CELL_WIDTH * 5;
 const BASE_COLOR = '#BF0D0D';
 const ACCENT_COLOR = '#F35857';
 const COLOR_CHANNELS = [1, 3, 5].map(index => ({
@@ -57,7 +58,7 @@ function drawFrame(context: CanvasRenderingContext2D, time: number, pointer: Poi
       context.fillStyle = glyph === '#' ? BASE_COLOR : glyph === '+' ? ACCENT_COLOR : '#669BBC';
       if (pointer && glyph === '#') {
         const distance = Math.hypot((x + 0.5) * CELL_WIDTH - pointer.x, (y + 0.5) * CELL_HEIGHT - pointer.y);
-        const strength = Math.max(0, Math.min(1, (HIGHLIGHT_RADIUS - distance) / (HIGHLIGHT_RADIUS - CELL_WIDTH)));
+        const strength = Math.max(0, Math.min(1, (HIGHLIGHT_RADIUS - distance) / (HIGHLIGHT_RADIUS - HIGHLIGHT_CORE_RADIUS)));
         if (strength > 0) {
           context.fillStyle = `#${COLOR_CHANNELS.map(({ base, accent }) =>
             Math.round(base + (accent - base) * strength).toString(16).padStart(2, '0'),
